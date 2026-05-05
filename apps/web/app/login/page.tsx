@@ -1,7 +1,29 @@
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+    registered?: string;
+  }>;
+};
+
+function getLoginMessage(searchParams?: { error?: string; registered?: string }) {
+  if (searchParams?.registered === "1") {
+    return "注册成功，请使用新账号登录。";
+  }
+  if (searchParams?.error === "invalid_credentials") {
+    return "账号或密码错误，请重试。";
+  }
+  if (searchParams?.error === "api_unreachable") {
+    return "后端服务不可达，请确认 API 服务已启动。";
+  }
+  return "";
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const message = getLoginMessage(resolvedSearchParams);
   return (
     <Shell activePath="/login">
       <main className="shell">
@@ -28,6 +50,19 @@ export default function LoginPage() {
               title="SIGN-IN PANEL"
               copy="视觉上维持战术终端风，交互上保留常规登录习惯，别为了风格把可用性也狠狠干没了。"
             />
+            {message ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  border: "1px solid #22c55e",
+                  padding: "10px 12px",
+                  color: "#bbf7d0",
+                  background: "rgba(20, 83, 45, 0.25)"
+                }}
+              >
+                {message}
+              </div>
+            ) : null}
             <form action="/api/auth/login" className="form-stack" method="post" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="account">

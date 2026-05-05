@@ -264,6 +264,10 @@ app.post("/v1/auth/register", async (req, res) => {
   }
 });
 
+app.get("/v1/auth/register", (_req, res) => {
+  fail(res, 405, "METHOD_NOT_ALLOWED", "Use POST /v1/auth/register");
+});
+
 app.post("/v1/auth/login", async (req, res) => {
   const { account, password } = req.body as { account?: string; password?: string };
   if (!account || !password) {
@@ -324,6 +328,10 @@ app.post("/v1/auth/login", async (req, res) => {
     refresh_token: refreshToken,
     expires_in: accessTokenExpiresInSeconds
   });
+});
+
+app.get("/v1/auth/login", (_req, res) => {
+  fail(res, 405, "METHOD_NOT_ALLOWED", "Use POST /v1/auth/login");
 });
 
 app.post("/v1/auth/refresh", async (req, res) => {

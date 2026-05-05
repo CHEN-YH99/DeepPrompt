@@ -7,22 +7,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No web tests yet\""
   },
   "dependencies": {
     "@deepprompt/types": "*",
-    "next": "^14.2.33",
+    "next": "^16.2.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^14.2.33",
     "@types/node": "^20.16.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
     "typescript": "^5.6.3"
   }
 }

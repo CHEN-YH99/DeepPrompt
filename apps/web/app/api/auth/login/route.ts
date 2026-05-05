@@ -9,14 +9,19 @@ export async function POST(request: NextRequest) {
     password: String(formData.get("password") ?? "")
   };
 
-  const response = await fetch(`${apiBaseUrl}/v1/auth/login`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(payload),
-    cache: "no-store"
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}/v1/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store"
+    });
+  } catch {
+    return NextResponse.redirect(new URL("/login?error=api_unreachable", request.url));
+  }
 
   if (!response.ok) {
     return NextResponse.redirect(new URL("/login?error=invalid_credentials", request.url));

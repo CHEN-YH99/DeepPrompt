@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "predev:web": "node -e \"const v=process.versions.node.split('.')[0]; if(Number(v)!==20){console.error('Node version must be 20.x. Current: '+process.versions.node); process.exit(1)}\"",
-    "prebuild": "node -e \"const v=process.versions.node.split('.')[0]; if(Number(v)!==20){console.error('Node version must be 20.x. Current: '+process.versions.node); process.exit(1)}\"",
+    "predev:web": "node -e \"const [major,minor]=process.versions.node.split('.').map(Number); if(major<20||(major===20&&minor<9)){console.error('Node version must be >=20.9. Current: '+process.versions.node); process.exit(1)}\"",
+    "prebuild": "node -e \"const [major,minor]=process.versions.node.split('.').map(Number); if(major<20||(major===20&&minor<9)){console.error('Node version must be >=20.9. Current: '+process.versions.node); process.exit(1)}\"",
     "dev": "turbo run dev --parallel",
     "dev:web": "npm run dev --workspace @deepprompt/web",
     "dev:api": "npm run dev --workspace @deepprompt/api",

@@ -10,17 +10,36 @@ export async function POST(request: NextRequest) {
     password: String(formData.get("password") ?? "")
   };
 
-  const response = await fetch(`${apiBaseUrl}/v1/auth/register`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(payload),
-    cache: "no-store"
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}/v1/auth/register`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store"
+    });
+  } catch {
+    return NextResponse.redirect(new URL("/register?error=api_unreachable", request.url));
+  }
 
   if (!response.ok) {
-    return NextResponse.redirect(new URL("/register?error=register_failed", request.url));
+    let error = "register_failed";
+    try {
+      const json = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      const code = json.error?.code;
+      if (code === "CONFLICT") {
+        error = "email_or_phone_exists";
+      } else if (code === "BAD_REQUEST") {
+        error = "invalid_register_payload";
+      }
+    } catch {
+      error = "register_failed";
+    }
+    return NextResponse.redirect(new URL(`/register?error=${error}`, request.url));
   }
 
   return NextResponse.redirect(new URL("/login?registered=1", request.url));

@@ -1,7 +1,31 @@
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 
-export default function RegisterPage() {
+type RegisterPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+  }>;
+};
+
+function getErrorMessage(error?: string) {
+  if (error === "email_or_phone_exists") {
+    return "该邮箱或手机号已注册，请直接登录。";
+  }
+  if (error === "invalid_register_payload") {
+    return "注册信息不完整或格式不正确，请检查后重试。";
+  }
+  if (error === "api_unreachable") {
+    return "后端服务不可达，请确认 API 服务已启动。";
+  }
+  if (error === "register_failed") {
+    return "注册失败，请稍后重试。";
+  }
+  return "";
+}
+
+export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = getErrorMessage(resolvedSearchParams?.error);
   return (
     <Shell activePath="/login">
       <main className="shell">
@@ -25,6 +49,19 @@ export default function RegisterPage() {
               title="ONBOARD PANEL"
               copy="提交后调用 /v1/auth/register，成功后引导到登录页完成登录。"
             />
+            {errorMessage ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  border: "1px solid #ef4444",
+                  padding: "10px 12px",
+                  color: "#fecaca",
+                  background: "rgba(127, 29, 29, 0.28)"
+                }}
+              >
+                {errorMessage}
+              </div>
+            ) : null}
             <form action="/api/auth/register" className="form-stack" method="post" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="nickname">
