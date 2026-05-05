@@ -1,0 +1,22 @@
+{
+  "name": "@deepprompt/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "tsx src/migrate.ts",
+    "lint": "echo \"No database lint rules yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"No database tests yet\""
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

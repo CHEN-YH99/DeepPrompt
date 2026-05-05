@@ -28,26 +28,26 @@ export default function LoginPage() {
               title="SIGN-IN PANEL"
               copy="视觉上维持战术终端风，交互上保留常规登录习惯，别为了风格把可用性也狠狠干没了。"
             />
-            <div className="form-stack" style={{ marginTop: 18 }}>
+            <form action="/api/auth/login" className="form-stack" method="post" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="account">
                   EMAIL / PHONE
                 </label>
-                <input defaultValue="operator@deepprompt.ai" id="account" />
+                <input defaultValue="operator@deepprompt.ai" id="account" name="account" required />
               </div>
               <div className="field">
                 <label className="field-label" htmlFor="password">
                   PASSWORD
                 </label>
-                <input defaultValue="••••••••••••" id="password" type="password" />
+                <input defaultValue="••••••••••••" id="password" name="password" required type="password" />
               </div>
               <div className="action-row">
-                <button className="action" type="button">
+                <button className="action" type="submit">
                   ENTER SYSTEM
                 </button>
-                <button className="ghost-action" type="button">
+                <a className="ghost-action" href="/register">
                   CREATE ACCOUNT
-                </button>
+                </a>
               </div>
               <div className="panel-grid">
                 <button className="ghost-action" type="button">
@@ -60,7 +60,7 @@ export default function LoginPage() {
                   WECHAT OAUTH
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </section>
       </main>

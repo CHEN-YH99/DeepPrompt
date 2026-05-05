@@ -1,0 +1,17 @@
+{
+  "name": "@deepprompt/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "echo \"No types lint rules yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"No types tests yet\""
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

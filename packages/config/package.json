@@ -1,0 +1,17 @@
+{
+  "name": "@deepprompt/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./env": "./src/env.ts"
+  },
+  "scripts": {
+    "lint": "echo \"No config lint rules yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"No config tests yet\""
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
