@@ -1,6 +1,6 @@
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
-import { models } from "@/lib/data";
+import { defaultModel, models } from "@/lib/data";
 
 export default function PublishPage() {
   return (
@@ -120,7 +120,7 @@ export default function PublishPage() {
                     <label className="field-label" htmlFor="model">
                       MODEL REGISTRY
                     </label>
-                    <select defaultValue={models[0].id} id="model">
+                    <select defaultValue={defaultModel.id} id="model">
                       {models.map((model) => (
                         <option key={model.id} value={model.id}>
                           {model.displayName}

@@ -28,8 +28,7 @@ export default function HomePage() {
               PRD / TDD 的 MVP 链路重建，优先覆盖浏览、搜索、发布、详情与个人管理核心路径。
             </p>
             <div className="ascii-rule">
-              /// MODEL-AGNOSTIC / RIGID GRID / SEARCHABLE DOSSIER / COPY-READY /
-              REVIEW-READY ///
+              {"/// MODEL-AGNOSTIC / RIGID GRID / SEARCHABLE DOSSIER / COPY-READY / REVIEW-READY ///"}
             </div>
             <div className="action-row">
               <a className="action" href="/publish">

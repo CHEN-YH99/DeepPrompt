@@ -1,0 +1,28 @@
+{
+  "name": "deepprompt",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "npm run dev --workspace @deepprompt/web",
+    "dev:api": "npm run dev --workspace @deepprompt/api",
+    "build": "npm run build --workspaces --if-present",
+    "start:web": "npm run start --workspace @deepprompt/web",
+    "start:api": "npm run start --workspace @deepprompt/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "turbo": "^2.5.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

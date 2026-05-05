@@ -29,6 +29,14 @@ export type ModelRecord = {
   featureTags: string[];
 };
 
+function ensureFirstItem<T>(list: T[], listName: string): T {
+  const first = list[0];
+  if (!first) {
+    throw new Error(`${listName} must contain at least one item.`);
+  }
+  return first;
+}
+
 export const models: ModelRecord[] = [
   {
     id: "gpt-image-2",
@@ -161,7 +169,8 @@ export const prompts: PromptRecord[] = [
   }
 ];
 
-export const featuredPrompt = prompts[0];
+export const featuredPrompt = ensureFirstItem(prompts, "prompts");
+export const defaultModel = ensureFirstItem(models, "models");
 
 export const searchHotTerms = [
   "TACTICAL PORTRAIT",
@@ -211,5 +220,5 @@ export const myPromptRows = [
 ];
 
 export function getPromptById(id: string) {
-  return prompts.find((prompt) => prompt.id === id) ?? prompts[0];
+  return prompts.find((prompt) => prompt.id === id) ?? featuredPrompt;
 }
