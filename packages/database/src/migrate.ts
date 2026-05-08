@@ -5,17 +5,18 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { Client } from "pg";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+const currentFile = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFile);
+const rootEnvPath = path.resolve(currentDir, "../../../.env");
+const schemaPath = path.resolve(currentDir, "schema.sql");
+const schemaSql = fs.readFileSync(schemaPath, "utf8");
+
+dotenv.config({ path: rootEnvPath });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to run migrations.");
 }
-
-const currentFile = fileURLToPath(import.meta.url);
-const currentDir = path.dirname(currentFile);
-const schemaPath = path.resolve(currentDir, "schema.sql");
-const schemaSql = fs.readFileSync(schemaPath, "utf8");
 
 async function run() {
   const client = new Client({ connectionString: databaseUrl });

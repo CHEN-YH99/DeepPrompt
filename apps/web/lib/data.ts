@@ -1,3 +1,13 @@
+import type {
+  ApiSuccess,
+  AuthUser,
+  ModelSummary,
+  PromptDetail,
+  PromptListItem
+} from "@deepprompt/types";
+
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
+
 export type PromptRecord = {
   id: string;
   title: string;
@@ -221,4 +231,176 @@ export const myPromptRows = [
 
 export function getPromptById(id: string) {
   return prompts.find((prompt) => prompt.id === id) ?? featuredPrompt;
+}
+
+export function getStaticPromptById(id: string) {
+  return prompts.find((prompt) => prompt.id === id) ?? null;
+}
+
+function modelSummaryToModelRecord(model: ModelSummary): ModelRecord {
+  return {
+    id: model.id,
+    displayName: model.display_name,
+    vendor: model.vendor,
+    format: model.prompt_format === "text" ? "text" : "hybrid",
+    supportsNegative: model.supports_neg,
+    featureTags: model.feature_tags
+  };
+}
+
+function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): PromptRecord {
+  return {
+    id: prompt.id,
+    title: prompt.title,
+    modelIds: prompt.model_ids,
+    modelLabel: prompt.model_label,
+    styleTags: prompt.style_tags,
+    usageTags: prompt.usage_tags,
+    colorTags: prompt.color_tags,
+    author: prompt.author,
+    likes: prompt.like_count,
+    collects: prompt.collect_count,
+    copies: prompt.copy_count,
+    status:
+      prompt.status === "approved" || prompt.status === "pending" || prompt.status === "draft"
+        ? prompt.status
+        : "pending",
+    createdAt: prompt.created_at,
+    cover:
+      prompt.cover_url ??
+      "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
+    excerpt: prompt.excerpt,
+    promptText: "prompt_text" in prompt ? prompt.prompt_text : prompt.excerpt,
+    negativePrompt:
+      "negative_prompt" in prompt && prompt.negative_prompt
+        ? prompt.negative_prompt
+        : undefined,
+    params:
+      "params_json" in prompt
+        ? Object.entries(prompt.params_json).map(([key, value]) => `${key.toUpperCase()} ${String(value)}`)
+        : [],
+    note:
+      "usage_note" in prompt && prompt.usage_note
+        ? prompt.usage_note
+        : "该 Prompt 来自后端主链路，审核状态和指标由 API 返回。"
+  };
+}
+
+async function readApiData<T>(response: Response) {
+  const json = (await response.json()) as ApiSuccess<T>;
+  return json.data;
+}
+
+function fallbackPromptRecords(query?: { q?: string; modelId?: string }) {
+  const keyword = query?.q?.trim().toLowerCase() ?? "";
+  const modelId = query?.modelId?.trim() ?? "";
+
+  return prompts.filter((prompt) => {
+    const matchesKeyword =
+      !keyword ||
+      prompt.title.toLowerCase().includes(keyword) ||
+      prompt.promptText.toLowerCase().includes(keyword) ||
+      prompt.excerpt.toLowerCase().includes(keyword) ||
+      prompt.styleTags.some((tag) => tag.toLowerCase().includes(keyword));
+
+    const matchesModel = !modelId || prompt.modelIds.includes(modelId);
+
+    return matchesKeyword && matchesModel;
+  });
+}
+
+export async function fetchModels() {
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/models`, { cache: "no-store" });
+    if (!response.ok) {
+      return models;
+    }
+    const data = await readApiData<ModelSummary[]>(response);
+    return data.map(modelSummaryToModelRecord);
+  } catch {
+    return models;
+  }
+}
+
+export async function fetchPromptRecords(query?: { q?: string; modelId?: string }) {
+  const params = new URLSearchParams();
+  if (query?.q) {
+    params.set("q", query.q);
+  }
+  if (query?.modelId) {
+    params.set("model_id", query.modelId);
+  }
+
+  try {
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return fallbackPromptRecords(query);
+    }
+    const data = await readApiData<PromptListItem[]>(response);
+    return data.map(promptListItemToPromptRecord);
+  } catch {
+    return fallbackPromptRecords(query);
+  }
+}
+
+export async function fetchMyPromptRecords(accessToken?: string) {
+  if (!accessToken) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/prompts/me`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await readApiData<PromptListItem[]>(response);
+    return data.map(promptListItemToPromptRecord);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchPromptRecordById(id: string, accessToken?: string) {
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/prompts/${id}`, {
+      headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return getStaticPromptById(id);
+    }
+    const data = await readApiData<PromptDetail>(response);
+    return promptListItemToPromptRecord(data);
+  } catch {
+    return getStaticPromptById(id);
+  }
+}
+
+export async function fetchCurrentUser(accessToken?: string) {
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/auth/me`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return readApiData<AuthUser>(response);
+  } catch {
+    return null;
+  }
 }

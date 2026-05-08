@@ -1,21 +1,29 @@
+import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 import { Shell } from "@/components/shell";
-import { getPromptById, prompts } from "@/lib/data";
+import { fetchPromptRecordById, fetchPromptRecords } from "@/lib/data";
 
 type PromptDetailPageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export function generateStaticParams() {
-  return prompts.map((prompt) => ({
-    id: prompt.id
-  }));
-}
+export const dynamic = "force-dynamic";
 
-export default function PromptDetailPage({ params }: PromptDetailPageProps) {
-  const prompt = getPromptById(params.id);
-  const relatedPrompts = prompts.filter((item) => item.id !== prompt.id).slice(0, 2);
+export default async function PromptDetailPage({ params }: PromptDetailPageProps) {
+  const { id } = await params;
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token")?.value;
+  const prompt = await fetchPromptRecordById(id, accessToken);
+
+  if (!prompt) {
+    notFound();
+  }
+
+  const relatedPrompts = (await fetchPromptRecords())
+    .filter((item) => item.id !== prompt.id)
+    .slice(0, 2);
 
   return (
     <Shell activePath="">
@@ -26,9 +34,11 @@ export default function PromptDetailPage({ params }: PromptDetailPageProps) {
             <h1 className="headline">{prompt.title}</h1>
             <p className="lede">{prompt.excerpt}</p>
             <div className="action-row">
-              <button className="action" type="button">
-                COPY PROMPT
-              </button>
+              <form action={`/api/prompts/${prompt.id}/copy`} method="post">
+                <button className="action" type="submit">
+                  RECORD COPY
+                </button>
+              </form>
               <button className="ghost-action" type="button">
                 OPEN MODEL LINK
               </button>

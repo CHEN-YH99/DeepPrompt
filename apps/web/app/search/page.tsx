@@ -1,9 +1,27 @@
 import { PromptCard } from "@/components/prompt-card";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
-import { models, prompts, searchHotTerms } from "@/lib/data";
+import { fetchModels, fetchPromptRecords, searchHotTerms } from "@/lib/data";
 
-export default function SearchPage() {
+type SearchPageProps = {
+  searchParams?: Promise<{
+    q?: string;
+    model_id?: string;
+  }>;
+};
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const keyword = resolvedSearchParams.q ?? "";
+  const selectedModel = resolvedSearchParams.model_id ?? "";
+  const [models, promptRecords] = await Promise.all([
+    fetchModels(),
+    fetchPromptRecords({
+      q: keyword,
+      modelId: selectedModel
+    })
+  ]);
+
   return (
     <Shell activePath="/search">
       <main className="shell">
@@ -18,16 +36,15 @@ export default function SearchPage() {
               MATRIX
             </h1>
             <p className="lede">
-              对齐 PRD 的搜索与筛选能力，当前页面结构已预留模型多选、风格、色调、用途和排序区块。
-              实际接后端时可直接把筛选组件替换为真实查询参数。
+              对齐 PRD 的搜索与筛选能力，当前已接入后端 Prompt 列表接口，支持关键词与模型筛选。
             </p>
             <div className="action-row">
-              <button className="action" type="button">
+              <a className="action" href="#query-panel">
                 EXECUTE QUERY
-              </button>
-              <button className="ghost-action" type="button">
+              </a>
+              <a className="ghost-action" href="/search">
                 RESET FILTERS
-              </button>
+              </a>
             </div>
           </div>
           <div className="section" data-unit="UNIT / SEARCH-02">
@@ -52,27 +69,27 @@ export default function SearchPage() {
             <SectionHeader
               eyebrow="[ FILTER CONFIG ]"
               title="QUERY PANEL"
-              copy="左侧过滤器贴合需求文档的信息架构，偏终端化视觉，不搞软绵绵消费者 UI。"
+              copy="MVP 先打通关键词和模型筛选，风格 / 色调 / 用途保留结构位。"
             />
-            <div className="filter-stack" style={{ marginTop: 18 }}>
+            <form className="filter-stack" id="query-panel" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="keyword">
                   KEYWORD / PROMPT TEXT + TAG + DESC
                 </label>
-                <input defaultValue="TACTICAL PORTRAIT" id="keyword" />
+                <input defaultValue={keyword} id="keyword" name="q" />
               </div>
               <div className="field">
-                <span className="field-label">MODEL SELECT</span>
-                <div className="tag-row">
-                  {models.map((model, index) => (
-                    <span
-                      className={`tag ${index === 0 ? "danger" : ""}`}
-                      key={model.id}
-                    >
+                <label className="field-label" htmlFor="model_id">
+                  MODEL SELECT
+                </label>
+                <select defaultValue={selectedModel} id="model_id" name="model_id">
+                  <option value="">ALL MODELS</option>
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id}>
                       {model.displayName}
-                    </span>
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
               <div className="field">
                 <label className="field-label" htmlFor="style">
@@ -107,27 +124,19 @@ export default function SearchPage() {
                   <option>UI MATERIAL</option>
                 </select>
               </div>
-              <div className="field">
-                <label className="field-label" htmlFor="sort">
-                  SORT MODE
-                </label>
-                <select defaultValue="HOT" id="sort">
-                  <option>HOT</option>
-                  <option>LATEST</option>
-                  <option>MOST COLLECTED</option>
-                  <option>MOST COPIED</option>
-                </select>
-              </div>
-            </div>
+              <button className="action" type="submit">
+                EXECUTE QUERY
+              </button>
+            </form>
           </aside>
           <div className="section" data-unit="UNIT / RESULT-08">
             <SectionHeader
               eyebrow="[ RESULT FEED ]"
               title="MATCHED DOSSIERS"
-              copy="右侧结果区采用统一卡片语言，后续接分页或无限滚动时不用推翻结构。"
+              copy={`当前匹配 ${promptRecords.length} 条 Prompt。`}
             />
             <div className="prompt-grid" style={{ marginTop: 18 }}>
-              {prompts.map((prompt) => (
+              {promptRecords.map((prompt) => (
                 <PromptCard key={prompt.id} prompt={prompt} />
               ))}
             </div>

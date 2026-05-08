@@ -31,9 +31,11 @@ export function PromptCard({ prompt }: PromptCardProps) {
         <Link className="micro-action" href={`/prompts/${prompt.id}`}>
           OPEN DOSSIER
         </Link>
-        <button className="ghost-action" type="button">
-          COPY PROMPT
-        </button>
+        <form action={`/api/prompts/${prompt.id}/copy`} method="post">
+          <button className="ghost-action" type="submit">
+            RECORD COPY
+          </button>
+        </form>
       </div>
     </article>
   );

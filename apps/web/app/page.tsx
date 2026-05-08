@@ -3,13 +3,19 @@ import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import {
   featuredPrompt,
-  models,
-  prompts,
+  fetchModels,
+  fetchPromptRecords,
   searchHotTerms,
   systemMilestones
 } from "@/lib/data";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [modelRecords, promptRecords] = await Promise.all([
+    fetchModels(),
+    fetchPromptRecords()
+  ]);
+  const featured = promptRecords[0] ?? featuredPrompt;
+
   return (
     <Shell activePath="/">
       <main className="shell">
@@ -41,11 +47,11 @@ export default function HomePage() {
             <div className="stats-grid" style={{ marginTop: 20 }}>
               <div className="stat-card">
                 <div className="stat-label">SUPPORTED MODELS</div>
-                <div className="stat-value">03</div>
+                <div className="stat-value">{modelRecords.length.toString().padStart(2, "0")}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">PROMPT UNITS</div>
-                <div className="stat-value">500+</div>
+                <div className="stat-value">{promptRecords.length || "500+"}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">TARGET LCP</div>
@@ -58,15 +64,15 @@ export default function HomePage() {
             <div className="hero-meta">
               <div className="cell">
                 <div className="mini-label">FEATURE ID</div>
-                <div className="card-value">{featuredPrompt.id}</div>
+                <div className="card-value">{featured.id}</div>
               </div>
               <div className="cell">
                 <div className="mini-label">PRIMARY MODEL</div>
-                <div className="card-value">{featuredPrompt.modelLabel}</div>
+                <div className="card-value">{featured.modelLabel}</div>
               </div>
               <div className="cell">
                 <div className="mini-label">AUTHOR UNIT</div>
-                <div className="card-value">{featuredPrompt.author}</div>
+                <div className="card-value">{featured.author}</div>
               </div>
             </div>
           </div>
@@ -99,7 +105,7 @@ export default function HomePage() {
               copy="MVP 阶段聚焦 3 大模型，页面筛选、发布表单和详情标签都围绕注册表配置驱动。"
             />
             <div className="info-grid" style={{ marginTop: 18 }}>
-              {models.map((model) => (
+              {modelRecords.map((model) => (
                 <div className="info-card" key={model.id}>
                   <div className="card-kicker">{model.vendor}</div>
                   <div className="card-value">{model.displayName}</div>
@@ -122,7 +128,7 @@ export default function HomePage() {
             <SectionHeader
               eyebrow="[ HOT SEARCH / TERMINAL FEED ]"
               title="TREND SCAN"
-              copy="搜索页目标支持全文关键词、模型多选、风格类型、颜色基调、用途场景与排序方式。"
+              copy="搜索页目标支持全文关键词、模型筛选、风格、色调、用途和排序方式。"
             />
             <div className="card-list" style={{ marginTop: 18 }}>
               {searchHotTerms.map((term, index) => (
@@ -143,10 +149,10 @@ export default function HomePage() {
             <SectionHeader
               eyebrow="[ PROMPT LIBRARY / LATEST + TRENDING ]"
               title="PROMPT DOSSIER WALL"
-              copy="首页采用高密度卡片矩阵，兼顾精选、热门趋势与最新上传。后续可再接 Masonry 和无限滚动。"
+              copy="首页采用 API 优先数据源，后端不可用时回退静态内容，保证开发体验不断档。"
             />
             <div className="prompt-grid" style={{ marginTop: 18 }}>
-              {prompts.map((prompt) => (
+              {promptRecords.map((prompt) => (
                 <PromptCard key={prompt.id} prompt={prompt} />
               ))}
             </div>
