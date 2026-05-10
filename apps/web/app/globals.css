@@ -559,6 +559,58 @@ img {
   resize: vertical;
 }
 
+.checkbox-grid {
+  display: grid;
+  gap: 6px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #0f0f0f;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-item input {
+  accent-color: #fda4af;
+}
+
+.checkbox-item:has(input:checked) {
+  border-color: var(--line-strong);
+  color: var(--text-strong);
+  background: rgba(253, 164, 175, 0.08);
+}
+
+.dynamic-params-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.model-tile {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.model-tile:hover {
+  border-color: var(--text-strong);
+}
+
 .form-split {
   display: grid;
   gap: 1px;

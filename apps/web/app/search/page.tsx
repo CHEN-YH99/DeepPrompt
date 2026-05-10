@@ -1,26 +1,98 @@
+import Link from "next/link";
+
 import { PromptCard } from "@/components/prompt-card";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
-import { fetchModels, fetchPromptRecords, searchHotTerms } from "@/lib/data";
+import {
+  SEARCH_SORT_OPTIONS,
+  fetchModels,
+  fetchPromptList,
+  searchHotTerms
+} from "@/lib/data";
+import type { SearchSort } from "@deepprompt/types";
 
 type SearchPageProps = {
-  searchParams?: Promise<{
-    q?: string;
-    model_id?: string;
-  }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const STYLE_OPTIONS = [
+  "REALISM",
+  "CYBERPUNK",
+  "ANIME",
+  "MINIMAL",
+  "EDITORIAL",
+  "INTERIOR",
+  "PRODUCT",
+  "BRUTALIST",
+  "STUDIO",
+  "FILM GRAIN",
+  "DENSE UI",
+  "TERMINAL"
+];
+
+const COLOR_OPTIONS = ["COLD", "WARM", "MONO", "BLACK", "WHITE", "RED", "GREEN", "RED SHIFT"];
+
+const USAGE_OPTIONS = ["PORTRAIT", "LANDSCAPE", "PRODUCT", "UI", "CONCEPT ART", "AD", "COVER", "KEY VISUAL"];
+
+function pickList(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => item.split(","))
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function pickSort(value: string | string[] | undefined): SearchSort {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  const allowed = SEARCH_SORT_OPTIONS.map((option) => option.value);
+  return (allowed as string[]).includes(candidate ?? "") ? (candidate as SearchSort) : "latest";
+}
+
+function pickKeyword(value: string | string[] | undefined): string {
+  if (!value) return "";
+  return Array.isArray(value) ? (value[0] ?? "") : value;
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const keyword = resolvedSearchParams.q ?? "";
-  const selectedModel = resolvedSearchParams.model_id ?? "";
-  const [models, promptRecords] = await Promise.all([
+  const resolved = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = pickKeyword(resolved.q);
+  const selectedModelIds = pickList(resolved.model_ids).concat(pickList(resolved.model_id));
+  const selectedStyleTags = pickList(resolved.style_tags);
+  const selectedColorTags = pickList(resolved.color_tags);
+  const selectedUsageTags = pickList(resolved.usage_tags);
+  const sort = pickSort(resolved.sort);
+
+  const [models, snapshot] = await Promise.all([
     fetchModels(),
-    fetchPromptRecords({
+    fetchPromptList({
       q: keyword,
-      modelId: selectedModel
+      modelIds: selectedModelIds,
+      styleTags: selectedStyleTags,
+      colorTags: selectedColorTags,
+      usageTags: selectedUsageTags,
+      sort
     })
   ]);
+
+  const facets = snapshot.meta?.facets;
+  const totalLabel = snapshot.meta ? `${snapshot.meta.total} HITS / ${snapshot.meta.tookMs}MS` : `${snapshot.items.length} HITS`;
+  const styleOptions = (facets?.styleTags.map((bucket) => bucket.value) ?? []).concat(
+    STYLE_OPTIONS.filter((option) => !facets?.styleTags.some((bucket) => bucket.value === option))
+  );
+  const colorOptions = (facets?.colorTags.map((bucket) => bucket.value) ?? []).concat(
+    COLOR_OPTIONS.filter((option) => !facets?.colorTags.some((bucket) => bucket.value === option))
+  );
+  const usageOptions = (facets?.usageTags.map((bucket) => bucket.value) ?? []).concat(
+    USAGE_OPTIONS.filter((option) => !facets?.usageTags.some((bucket) => bucket.value === option))
+  );
 
   return (
     <Shell activePath="/search">
@@ -36,7 +108,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               MATRIX
             </h1>
             <p className="lede">
-              对齐 PRD 的搜索与筛选能力，当前已接入后端 Prompt 列表接口，支持关键词与模型筛选。
+              对齐 PRD 的搜索与筛选能力，关键词走 PostgreSQL 全文检索，模型、风格、色调、用途、排序全部联动并写回 URL。
             </p>
             <div className="action-row">
               <a className="action" href="#query-panel">
@@ -51,14 +123,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <SectionHeader
               eyebrow="[ HOT KEYWORDS ]"
               title="LIVE TREND BUFFER"
-              copy="热搜词和历史搜索词在 MVP 可先走静态配置，后续再接 Redis / Meilisearch 热度数据。"
+              copy="MVP 阶段热搜词先走静态配置，后续切到 Redis 排行榜。"
             />
             <div className="card-list" style={{ marginTop: 18 }}>
               {searchHotTerms.map((term, index) => (
-                <div className="telemetry-card" key={term}>
+                <Link
+                  className="telemetry-card"
+                  href={`/search?q=${encodeURIComponent(term)}`}
+                  key={term}
+                  style={{ display: "block" }}
+                >
                   <div className="card-kicker">TERM / {index + 1}</div>
                   <div className="card-value">{term}</div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -69,61 +146,121 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <SectionHeader
               eyebrow="[ FILTER CONFIG ]"
               title="QUERY PANEL"
-              copy="MVP 先打通关键词和模型筛选，风格 / 色调 / 用途保留结构位。"
+              copy="模型来自 model_registry，标签维度由后端 facet 聚合返回，多选 + 排序联动。"
             />
-            <form className="filter-stack" id="query-panel" style={{ marginTop: 18 }}>
+            <form className="filter-stack" id="query-panel" method="get" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="keyword">
-                  KEYWORD / PROMPT TEXT + TAG + DESC
+                  KEYWORD / TITLE + PROMPT + TAG
                 </label>
                 <input defaultValue={keyword} id="keyword" name="q" />
               </div>
+
               <div className="field">
-                <label className="field-label" htmlFor="model_id">
-                  MODEL SELECT
+                <div className="field-label">MODEL REGISTRY</div>
+                <div className="checkbox-grid">
+                  {models.map((model) => {
+                    const facetCount = facets?.modelIds.find((bucket) => bucket.value === model.id)?.count;
+                    return (
+                      <label className="checkbox-item" key={model.id}>
+                        <input
+                          defaultChecked={selectedModelIds.includes(model.id)}
+                          name="model_ids"
+                          type="checkbox"
+                          value={model.id}
+                        />
+                        <span>
+                          {model.displayName}
+                          {typeof facetCount === "number" ? ` (${facetCount})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="field-label">STYLE TAGS</div>
+                <div className="checkbox-grid">
+                  {styleOptions.slice(0, 10).map((option) => {
+                    const bucket = facets?.styleTags.find((item) => item.value === option);
+                    return (
+                      <label className="checkbox-item" key={option}>
+                        <input
+                          defaultChecked={selectedStyleTags.includes(option)}
+                          name="style_tags"
+                          type="checkbox"
+                          value={option}
+                        />
+                        <span>
+                          {option}
+                          {bucket ? ` (${bucket.count})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="field-label">COLOR TONE</div>
+                <div className="checkbox-grid">
+                  {colorOptions.slice(0, 8).map((option) => {
+                    const bucket = facets?.colorTags.find((item) => item.value === option);
+                    return (
+                      <label className="checkbox-item" key={option}>
+                        <input
+                          defaultChecked={selectedColorTags.includes(option)}
+                          name="color_tags"
+                          type="checkbox"
+                          value={option}
+                        />
+                        <span>
+                          {option}
+                          {bucket ? ` (${bucket.count})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="field-label">USAGE SCENE</div>
+                <div className="checkbox-grid">
+                  {usageOptions.slice(0, 8).map((option) => {
+                    const bucket = facets?.usageTags.find((item) => item.value === option);
+                    return (
+                      <label className="checkbox-item" key={option}>
+                        <input
+                          defaultChecked={selectedUsageTags.includes(option)}
+                          name="usage_tags"
+                          type="checkbox"
+                          value={option}
+                        />
+                        <span>
+                          {option}
+                          {bucket ? ` (${bucket.count})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="sort">
+                  SORT
                 </label>
-                <select defaultValue={selectedModel} id="model_id" name="model_id">
-                  <option value="">ALL MODELS</option>
-                  {models.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.displayName}
+                <select defaultValue={sort} id="sort" name="sort">
+                  {SEARCH_SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="field">
-                <label className="field-label" htmlFor="style">
-                  STYLE TYPE
-                </label>
-                <select defaultValue="CYBERPUNK" id="style">
-                  <option>CYBERPUNK</option>
-                  <option>REALISM</option>
-                  <option>ANIME</option>
-                  <option>MINIMAL</option>
-                </select>
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="color">
-                  COLOR TONE
-                </label>
-                <select defaultValue="COLD" id="color">
-                  <option>COLD</option>
-                  <option>WARM</option>
-                  <option>BLACK / WHITE</option>
-                  <option>FULL COLOR</option>
-                </select>
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="usage">
-                  USAGE SCENE
-                </label>
-                <select defaultValue="PORTRAIT" id="usage">
-                  <option>PORTRAIT</option>
-                  <option>LANDSCAPE</option>
-                  <option>PRODUCT</option>
-                  <option>UI MATERIAL</option>
-                </select>
-              </div>
+
               <button className="action" type="submit">
                 EXECUTE QUERY
               </button>
@@ -133,13 +270,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <SectionHeader
               eyebrow="[ RESULT FEED ]"
               title="MATCHED DOSSIERS"
-              copy={`当前匹配 ${promptRecords.length} 条 Prompt。`}
+              copy={`SORT / ${sort.toUpperCase()} / ${totalLabel}`}
             />
-            <div className="prompt-grid" style={{ marginTop: 18 }}>
-              {promptRecords.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} />
-              ))}
-            </div>
+            {snapshot.items.length === 0 ? (
+              <p className="mono-copy" style={{ marginTop: 18 }}>
+                没有匹配的 Prompt，先放宽筛选条件再继续探索。
+              </p>
+            ) : (
+              <div className="prompt-grid" style={{ marginTop: 18 }}>
+                {snapshot.items.map((prompt) => (
+                  <PromptCard key={prompt.id} prompt={prompt} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

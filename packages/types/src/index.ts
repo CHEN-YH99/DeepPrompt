@@ -39,6 +39,22 @@ export type LoginRequest = {
   password: string;
 };
 
+export type ModelParamOption = {
+  label: string;
+  value: string;
+};
+
+export type ModelParamField = {
+  key: string;
+  label: string;
+  input_type: "text" | "textarea" | "number" | "select";
+  required?: boolean;
+  placeholder?: string;
+  help_text?: string;
+  default_value?: string | number;
+  options?: ModelParamOption[];
+};
+
 export type ModelSummary = {
   id: string;
   display_name: string;
@@ -46,6 +62,53 @@ export type ModelSummary = {
   prompt_format: "text" | "tag" | "hybrid";
   supports_neg: boolean;
   feature_tags: string[];
+  param_schema: ModelParamField[];
+  logo_url?: string | null;
+  official_url?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+};
+
+export type ModelDetail = ModelSummary & {
+  logo_url: string | null;
+  official_url: string | null;
+  sort_order: number;
+  is_active: boolean;
+  prompt_count?: number;
+};
+
+export type SearchSort =
+  | "latest"
+  | "trending_weekly"
+  | "trending_monthly"
+  | "most_copied"
+  | "most_collected";
+
+export type PromptListQuery = {
+  q?: string;
+  model_ids?: string[];
+  style_tags?: string[];
+  color_tags?: string[];
+  usage_tags?: string[];
+  sort?: SearchSort;
+  limit?: number;
+};
+
+export type SearchFacetBucket = {
+  value: string;
+  count: number;
+};
+
+export type PromptListMeta = {
+  total: number;
+  took_ms: number;
+  sort: SearchSort;
+  facets: {
+    model_ids: SearchFacetBucket[];
+    style_tags: SearchFacetBucket[];
+    color_tags: SearchFacetBucket[];
+    usage_tags: SearchFacetBucket[];
+  };
 };
 
 export type PromptImageRecord = {

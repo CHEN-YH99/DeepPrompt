@@ -1,9 +1,13 @@
 import type {
   ApiSuccess,
   AuthUser,
+  ModelDetail,
+  ModelParamField,
   ModelSummary,
   PromptDetail,
-  PromptListItem
+  PromptListItem,
+  PromptListMeta,
+  SearchSort
 } from "@deepprompt/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
@@ -27,6 +31,7 @@ export type PromptRecord = {
   promptText: string;
   negativePrompt?: string;
   params: string[];
+  paramsRecord: Record<string, unknown>;
   note: string;
   images: Array<{
     url: string;
@@ -41,7 +46,48 @@ export type ModelRecord = {
   format: "text" | "hybrid";
   supportsNegative: boolean;
   featureTags: string[];
+  paramSchema: ModelParamField[];
+  logoUrl?: string | null;
+  officialUrl?: string | null;
+  promptCount?: number;
 };
+
+export type SearchFacet = { value: string; count: number };
+
+export type PromptListMetaSnapshot = {
+  total: number;
+  tookMs: number;
+  sort: SearchSort;
+  facets: {
+    modelIds: SearchFacet[];
+    styleTags: SearchFacet[];
+    colorTags: SearchFacet[];
+    usageTags: SearchFacet[];
+  };
+};
+
+export type PromptListSnapshot = {
+  items: PromptRecord[];
+  meta: PromptListMetaSnapshot | null;
+};
+
+export type PromptSearchQuery = {
+  q?: string;
+  modelIds?: string[];
+  styleTags?: string[];
+  colorTags?: string[];
+  usageTags?: string[];
+  sort?: SearchSort;
+  limit?: number;
+};
+
+export const SEARCH_SORT_OPTIONS: Array<{ value: SearchSort; label: string }> = [
+  { value: "latest", label: "LATEST" },
+  { value: "trending_weekly", label: "TRENDING / WEEK" },
+  { value: "trending_monthly", label: "TRENDING / MONTH" },
+  { value: "most_copied", label: "MOST COPIED" },
+  { value: "most_collected", label: "MOST COLLECTED" }
+];
 
 function ensureFirstItem<T>(list: T[], listName: string): T {
   const first = list[0];
@@ -58,7 +104,8 @@ export const models: ModelRecord[] = [
     vendor: "OPENAI",
     format: "text",
     supportsNegative: false,
-    featureTags: ["REALISM", "EDIT", "SEMANTIC"]
+    featureTags: ["REALISM", "EDIT", "SEMANTIC"],
+    paramSchema: []
   },
   {
     id: "midjourney-v6",
@@ -66,7 +113,8 @@ export const models: ModelRecord[] = [
     vendor: "MIDJOURNEY INC.",
     format: "hybrid",
     supportsNegative: false,
-    featureTags: ["ART", "STYLE", "ATMOS"]
+    featureTags: ["ART", "STYLE", "ATMOS"],
+    paramSchema: []
   },
   {
     id: "banana-flux",
@@ -74,11 +122,12 @@ export const models: ModelRecord[] = [
     vendor: "BLACK FOREST LABS",
     format: "hybrid",
     supportsNegative: true,
-    featureTags: ["OPEN", "FAST", "LOCAL"]
+    featureTags: ["OPEN", "FAST", "LOCAL"],
+    paramSchema: []
   }
 ];
 
-export const prompts: PromptRecord[] = [
+const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord">> = [
   {
     id: "dp-001",
     title: "TACTICAL PORTRAIT / NEON RAIN",
@@ -211,6 +260,17 @@ export const prompts: PromptRecord[] = [
   }
 ];
 
+export const prompts: PromptRecord[] = PROMPT_TEMPLATES.map((entry) => ({
+  ...entry,
+  paramsRecord: entry.params.reduce<Record<string, unknown>>((acc, raw) => {
+    const [keyPart, ...rest] = raw.split(/\s+/);
+    if (keyPart) {
+      acc[keyPart] = rest.length > 0 ? rest.join(" ") : "";
+    }
+    return acc;
+  }, {})
+}));
+
 export const featuredPrompt = ensureFirstItem(prompts, "prompts");
 export const defaultModel = ensureFirstItem(models, "models");
 
@@ -276,11 +336,26 @@ function modelSummaryToModelRecord(model: ModelSummary): ModelRecord {
     vendor: model.vendor,
     format: model.prompt_format === "text" ? "text" : "hybrid",
     supportsNegative: model.supports_neg,
-    featureTags: model.feature_tags
+    featureTags: model.feature_tags,
+    paramSchema: Array.isArray(model.param_schema) ? model.param_schema : [],
+    logoUrl: model.logo_url ?? null,
+    officialUrl: model.official_url ?? null
+  };
+}
+
+function modelDetailToModelRecord(model: ModelDetail): ModelRecord {
+  return {
+    ...modelSummaryToModelRecord(model),
+    promptCount: model.prompt_count
   };
 }
 
 function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): PromptRecord {
+  const paramsRecord =
+    "params_json" in prompt && prompt.params_json && typeof prompt.params_json === "object"
+      ? (prompt.params_json as Record<string, unknown>)
+      : {};
+
   return {
     id: prompt.id,
     title: prompt.title,
@@ -307,10 +382,8 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
       "negative_prompt" in prompt && prompt.negative_prompt
         ? prompt.negative_prompt
         : undefined,
-    params:
-      "params_json" in prompt
-        ? Object.entries(prompt.params_json).map(([key, value]) => `${key.toUpperCase()} ${String(value)}`)
-        : [],
+    params: Object.entries(paramsRecord).map(([key, value]) => `${key.toUpperCase()} ${String(value)}`),
+    paramsRecord,
     note:
       "usage_note" in prompt && prompt.usage_note
         ? prompt.usage_note
@@ -332,14 +405,24 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
   };
 }
 
+async function readApiResponse<T, M = Record<string, unknown>>(response: Response) {
+  return (await response.json()) as ApiSuccess<T, M>;
+}
+
 async function readApiData<T>(response: Response) {
-  const json = (await response.json()) as ApiSuccess<T>;
+  const json = await readApiResponse<T>(response);
   return json.data;
 }
 
-function fallbackPromptRecords(query?: { q?: string; modelId?: string }) {
+function fallbackPromptRecords(query?: PromptSearchQuery) {
   const keyword = query?.q?.trim().toLowerCase() ?? "";
-  const modelId = query?.modelId?.trim() ?? "";
+  const modelIds = query?.modelIds ?? [];
+  const styleTags = query?.styleTags ?? [];
+  const colorTags = query?.colorTags ?? [];
+  const usageTags = query?.usageTags ?? [];
+
+  const lowerEqualsAny = (haystack: string[], needles: string[]) =>
+    needles.every((needle) => haystack.some((tag) => tag.toUpperCase() === needle.toUpperCase()));
 
   return prompts.filter((prompt) => {
     const matchesKeyword =
@@ -349,34 +432,70 @@ function fallbackPromptRecords(query?: { q?: string; modelId?: string }) {
       prompt.excerpt.toLowerCase().includes(keyword) ||
       prompt.styleTags.some((tag) => tag.toLowerCase().includes(keyword));
 
-    const matchesModel = !modelId || prompt.modelIds.includes(modelId);
+    const matchesModel =
+      modelIds.length === 0 || modelIds.some((id) => prompt.modelIds.includes(id));
+    const matchesStyle = styleTags.length === 0 || lowerEqualsAny(prompt.styleTags, styleTags);
+    const matchesColor = colorTags.length === 0 || lowerEqualsAny(prompt.colorTags, colorTags);
+    const matchesUsage = usageTags.length === 0 || lowerEqualsAny(prompt.usageTags, usageTags);
 
-    return matchesKeyword && matchesModel;
+    return matchesKeyword && matchesModel && matchesStyle && matchesColor && matchesUsage;
   });
 }
 
-export async function fetchModels() {
+function buildPromptListSearchParams(query?: PromptSearchQuery) {
+  const params = new URLSearchParams();
+  if (query?.q) {
+    params.set("q", query.q);
+  }
+  if (query?.modelIds && query.modelIds.length > 0) {
+    params.set("model_ids", query.modelIds.join(","));
+  }
+  if (query?.styleTags && query.styleTags.length > 0) {
+    params.set("style_tags", query.styleTags.join(","));
+  }
+  if (query?.colorTags && query.colorTags.length > 0) {
+    params.set("color_tags", query.colorTags.join(","));
+  }
+  if (query?.usageTags && query.usageTags.length > 0) {
+    params.set("usage_tags", query.usageTags.join(","));
+  }
+  if (query?.sort) {
+    params.set("sort", query.sort);
+  }
+  if (query?.limit) {
+    params.set("limit", String(query.limit));
+  }
+  return params;
+}
+
+export async function fetchModels(): Promise<ModelRecord[]> {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/models`, { cache: "no-store" });
     if (!response.ok) {
       return models;
     }
-    const data = await readApiData<ModelSummary[]>(response);
-    return data.map(modelSummaryToModelRecord);
+    const data = await readApiData<ModelDetail[]>(response);
+    return data.map(modelDetailToModelRecord);
   } catch {
     return models;
   }
 }
 
-export async function fetchPromptRecords(query?: { q?: string; modelId?: string }) {
-  const params = new URLSearchParams();
-  if (query?.q) {
-    params.set("q", query.q);
+export async function fetchModelDetail(id: string): Promise<ModelRecord | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/models/${id}`, { cache: "no-store" });
+    if (!response.ok) {
+      return models.find((model) => model.id === id) ?? null;
+    }
+    const data = await readApiData<ModelDetail>(response);
+    return modelDetailToModelRecord(data);
+  } catch {
+    return models.find((model) => model.id === id) ?? null;
   }
-  if (query?.modelId) {
-    params.set("model_id", query.modelId);
-  }
+}
 
+export async function fetchPromptRecords(query?: PromptSearchQuery): Promise<PromptRecord[]> {
+  const params = buildPromptListSearchParams(query);
   try {
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`, {
@@ -389,6 +508,58 @@ export async function fetchPromptRecords(query?: { q?: string; modelId?: string 
     return data.map(promptListItemToPromptRecord);
   } catch {
     return fallbackPromptRecords(query);
+  }
+}
+
+export async function fetchPromptList(query?: PromptSearchQuery): Promise<PromptListSnapshot> {
+  const params = buildPromptListSearchParams(query);
+  try {
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return {
+        items: fallbackPromptRecords(query),
+        meta: null
+      };
+    }
+    const json = await readApiResponse<PromptListItem[], PromptListMeta>(response);
+    const items = json.data.map(promptListItemToPromptRecord);
+    const meta = json.meta
+      ? {
+          total: json.meta.total,
+          tookMs: json.meta.took_ms,
+          sort: json.meta.sort,
+          facets: {
+            modelIds: json.meta.facets.model_ids,
+            styleTags: json.meta.facets.style_tags,
+            colorTags: json.meta.facets.color_tags,
+            usageTags: json.meta.facets.usage_tags
+          }
+        }
+      : null;
+    return { items, meta };
+  } catch {
+    return {
+      items: fallbackPromptRecords(query),
+      meta: null
+    };
+  }
+}
+
+export async function fetchRelatedPromptRecords(id: string): Promise<PromptRecord[]> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/prompts/${id}/related`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await readApiData<PromptListItem[]>(response);
+    return data.map(promptListItemToPromptRecord);
+  } catch {
+    return [];
   }
 }
 

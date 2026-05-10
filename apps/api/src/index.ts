@@ -13,12 +13,17 @@ import type {
   ApiSuccess,
   AuthUser,
   CreatePromptInput,
+  ModelDetail,
+  ModelParamField,
   ModelSummary,
   PromptDetail,
   PromptImageRecord,
   PromptListItem,
+  PromptListMeta,
   PromptStatus,
-  RegisterRequest
+  RegisterRequest,
+  SearchFacetBucket,
+  SearchSort
 } from "@deepprompt/types";
 import { Client } from "pg";
 import { createClient, type RedisClientType } from "redis";
@@ -52,32 +57,106 @@ type PromptDetailRow = Omit<PromptDetail, "created_at" | "images"> & {
   created_at: Date;
 };
 
-const supportedModels: ModelSummary[] = [
-  {
-    id: "gpt-image-2",
-    display_name: "GPT-IMAGE-2",
-    vendor: "OPENAI",
-    prompt_format: "text",
-    supports_neg: false,
-    feature_tags: ["REALISM", "EDIT", "SEMANTIC"]
-  },
-  {
-    id: "midjourney-v6",
-    display_name: "MIDJOURNEY V6",
-    vendor: "MIDJOURNEY INC.",
-    prompt_format: "hybrid",
-    supports_neg: false,
-    feature_tags: ["ART", "STYLE", "ATMOS"]
-  },
-  {
-    id: "banana-flux",
-    display_name: "BANANA / BFL FLUX",
-    vendor: "BLACK FOREST LABS",
-    prompt_format: "hybrid",
-    supports_neg: true,
-    feature_tags: ["OPEN", "FAST", "LOCAL"]
+type ModelRegistryRow = {
+  id: string;
+  display_name: string;
+  vendor: string;
+  logo_url: string | null;
+  official_url: string | null;
+  prompt_format: ModelSummary["prompt_format"];
+  supports_neg: boolean;
+  param_schema: ModelParamField[] | null;
+  is_active: boolean;
+  sort_order: number;
+  feature_tags: string[];
+};
+
+const modelCache = {
+  data: null as ModelDetail[] | null,
+  expiresAt: 0
+};
+const MODEL_CACHE_TTL_MS = 60 * 1000;
+
+function rowToModelDetail(row: ModelRegistryRow, promptCount = 0): ModelDetail {
+  return {
+    id: row.id,
+    display_name: row.display_name,
+    vendor: row.vendor,
+    prompt_format: row.prompt_format,
+    supports_neg: row.supports_neg,
+    feature_tags: row.feature_tags ?? [],
+    param_schema: Array.isArray(row.param_schema) ? row.param_schema : [],
+    logo_url: row.logo_url,
+    official_url: row.official_url,
+    sort_order: row.sort_order,
+    is_active: row.is_active,
+    prompt_count: promptCount
+  };
+}
+
+async function loadActiveModels(): Promise<ModelDetail[]> {
+  const now = Date.now();
+  if (modelCache.data && modelCache.expiresAt > now) {
+    return modelCache.data;
   }
-];
+
+  const result = await pgClient.query<ModelRegistryRow>(
+    `
+    SELECT
+      id, display_name, vendor, logo_url, official_url,
+      prompt_format, supports_neg, param_schema, is_active,
+      sort_order, feature_tags
+    FROM model_registry
+    WHERE is_active = TRUE
+    ORDER BY sort_order ASC, display_name ASC
+    `
+  );
+
+  const data = result.rows.map((row) => rowToModelDetail(row));
+  modelCache.data = data;
+  modelCache.expiresAt = now + MODEL_CACHE_TTL_MS;
+  return data;
+}
+
+function invalidateModelCache() {
+  modelCache.data = null;
+  modelCache.expiresAt = 0;
+}
+
+const SORT_FIELDS: Record<SearchSort, string> = {
+  latest: "p.created_at DESC, p.id DESC",
+  trending_weekly: "p.like_count DESC, p.created_at DESC",
+  trending_monthly: "p.like_count DESC, p.collect_count DESC, p.created_at DESC",
+  most_copied: "p.copy_count DESC, p.created_at DESC",
+  most_collected: "p.collect_count DESC, p.created_at DESC"
+};
+
+function parseSort(value: unknown): SearchSort {
+  const candidate = typeof value === "string" ? value : "";
+  if (candidate in SORT_FIELDS) {
+    return candidate as SearchSort;
+  }
+  return "latest";
+}
+
+function parseListParam(value: unknown, max = 8): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .slice(0, max);
+  }
+
+  if (typeof value !== "string" || value.length === 0) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
 
 const app = express();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3010);
@@ -286,18 +365,22 @@ function normalizeParams(value: unknown) {
   return value as Record<string, unknown>;
 }
 
-function getModelLabel(modelIds: string[]) {
+async function getModelLabel(modelIds: string[]): Promise<string> {
+  if (modelIds.length === 0) {
+    return "UNKNOWN MODEL";
+  }
+  const models = await loadActiveModels();
   const labels = modelIds
-    .map((id) => supportedModels.find((model) => model.id === id)?.display_name ?? id)
+    .map((id) => models.find((model) => model.id === id)?.display_name ?? id)
     .filter(Boolean);
 
   return labels.length > 0 ? labels.join(" / ") : "UNKNOWN MODEL";
 }
 
-function toPromptListItem(row: PromptListRow): PromptListItem {
+async function toPromptListItem(row: PromptListRow): Promise<PromptListItem> {
   return {
     ...row,
-    model_label: getModelLabel(row.model_ids),
+    model_label: await getModelLabel(row.model_ids),
     created_at: row.created_at.toISOString()
   };
 }
@@ -369,7 +452,7 @@ async function getPromptDetail(promptId: string) {
 
   return {
     ...row,
-    model_label: getModelLabel(row.model_ids),
+    model_label: await getModelLabel(row.model_ids),
     created_at: row.created_at.toISOString(),
     images: await getPromptImages(promptId)
   } satisfies PromptDetail;
@@ -576,32 +659,166 @@ app.get("/v1/auth/me", requireAuth, async (req, res) => {
   success(res, (req as AuthedRequest).user);
 });
 
-app.get("/v1/models", (_req, res) => {
-  success(res, supportedModels);
+app.get("/v1/models", async (_req, res) => {
+  try {
+    const models = await loadActiveModels();
+    success(res, models);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load models";
+    fail(res, 500, "INTERNAL_ERROR", message);
+  }
+});
+
+app.get("/v1/models/:id", async (req, res) => {
+  try {
+    const result = await pgClient.query<ModelRegistryRow>(
+      `
+      SELECT
+        id, display_name, vendor, logo_url, official_url,
+        prompt_format, supports_neg, param_schema, is_active,
+        sort_order, feature_tags
+      FROM model_registry
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [req.params.id]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      fail(res, 404, "NOT_FOUND", "Model not found");
+      return;
+    }
+
+    const countResult = await pgClient.query<{ count: string }>(
+      `SELECT COUNT(*)::TEXT AS count FROM prompts WHERE status = 'approved' AND $1 = ANY(model_ids)`,
+      [req.params.id]
+    );
+
+    success(res, rowToModelDetail(row, Number(countResult.rows[0]?.count ?? 0)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load model";
+    fail(res, 500, "INTERNAL_ERROR", message);
+  }
+});
+
+app.post("/v1/models", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  if (user.role !== "admin" && user.role !== "moderator") {
+    fail(res, 403, "FORBIDDEN", "Admin role required");
+    return;
+  }
+
+  const body = (req.body ?? {}) as Partial<ModelDetail>;
+  const id = String(body.id ?? "").trim();
+  const displayName = String(body.display_name ?? "").trim();
+  const vendor = String(body.vendor ?? "").trim();
+  if (!id || !displayName || !vendor) {
+    fail(res, 400, "BAD_REQUEST", "id, display_name, vendor are required");
+    return;
+  }
+
+  const promptFormat: ModelDetail["prompt_format"] =
+    body.prompt_format === "tag" || body.prompt_format === "hybrid" ? body.prompt_format : "text";
+  const supportsNeg = body.supports_neg === true;
+  const isActive = body.is_active !== false;
+  const sortOrder = Number.isFinite(body.sort_order) ? Number(body.sort_order) : 99;
+  const featureTags = Array.isArray(body.feature_tags)
+    ? body.feature_tags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 12)
+    : [];
+  const paramSchema = Array.isArray(body.param_schema) ? body.param_schema : [];
+
+  try {
+    await pgClient.query(
+      `
+      INSERT INTO model_registry (
+        id, display_name, vendor, logo_url, official_url,
+        prompt_format, supports_neg, param_schema, is_active, sort_order, feature_tags
+      )
+      VALUES ($1,$2,$3,$4,$5,$6::prompt_format,$7,$8::JSONB,$9,$10,$11)
+      ON CONFLICT (id) DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        vendor = EXCLUDED.vendor,
+        logo_url = EXCLUDED.logo_url,
+        official_url = EXCLUDED.official_url,
+        prompt_format = EXCLUDED.prompt_format,
+        supports_neg = EXCLUDED.supports_neg,
+        param_schema = EXCLUDED.param_schema,
+        is_active = EXCLUDED.is_active,
+        sort_order = EXCLUDED.sort_order,
+        feature_tags = EXCLUDED.feature_tags
+      `,
+      [
+        id,
+        displayName,
+        vendor,
+        body.logo_url ?? null,
+        body.official_url ?? null,
+        promptFormat,
+        supportsNeg,
+        JSON.stringify(paramSchema),
+        isActive,
+        sortOrder,
+        featureTags
+      ]
+    );
+    invalidateModelCache();
+    success(res, { id });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to upsert model";
+    fail(res, 500, "INTERNAL_ERROR", message);
+  }
 });
 
 app.get("/v1/prompts", async (req, res) => {
+  const startedAt = Date.now();
   const q = String(req.query.q ?? "").trim();
-  const modelId = String(req.query.model_id ?? "").trim();
+  const modelIds = parseListParam(req.query.model_ids, 8).concat(
+    parseListParam(req.query.model_id, 1)
+  );
+  const styleTags = parseListParam(req.query.style_tags, 8);
+  const colorTags = parseListParam(req.query.color_tags, 8);
+  const usageTags = parseListParam(req.query.usage_tags, 8);
+  const sort = parseSort(req.query.sort);
+  const limitRaw = Number(req.query.limit);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(60, Math.floor(limitRaw)) : 24;
+
   const params: unknown[] = [];
-  const conditions = ["p.status = 'approved'"];
+  const conditions: string[] = ["p.status = 'approved'"];
 
   if (q) {
-    params.push(`%${q.toLowerCase()}%`);
-    conditions.push(`(
-      LOWER(p.title) LIKE $${params.length}
-      OR LOWER(p.prompt_text) LIKE $${params.length}
-      OR LOWER(array_to_string(p.style_tags, ' ')) LIKE $${params.length}
-      OR LOWER(array_to_string(p.usage_tags, ' ')) LIKE $${params.length}
-    )`);
+    params.push(q);
+    conditions.push(
+      `(p.search_vector @@ plainto_tsquery('simple', $${params.length}) OR LOWER(p.title) LIKE LOWER('%' || $${params.length} || '%'))`
+    );
   }
 
-  if (modelId) {
-    params.push(modelId);
-    conditions.push(`$${params.length} = ANY(p.model_ids)`);
+  if (modelIds.length > 0) {
+    params.push(modelIds);
+    conditions.push(`p.model_ids && $${params.length}::TEXT[]`);
   }
 
-  const result = await pgClient.query<PromptListRow>(
+  if (styleTags.length > 0) {
+    params.push(styleTags);
+    conditions.push(`p.style_tags && $${params.length}::VARCHAR[]`);
+  }
+
+  if (colorTags.length > 0) {
+    params.push(colorTags);
+    conditions.push(`p.color_tags && $${params.length}::VARCHAR[]`);
+  }
+
+  if (usageTags.length > 0) {
+    params.push(usageTags);
+    conditions.push(`p.usage_tags && $${params.length}::VARCHAR[]`);
+  }
+
+  const whereSql = conditions.join(" AND ");
+  const orderSql = SORT_FIELDS[sort];
+  params.push(limit);
+  const limitParamIndex = params.length;
+
+  const listResult = await pgClient.query<PromptListRow>(
     `
     SELECT
       p.id,
@@ -627,14 +844,79 @@ app.get("/v1/prompts", async (req, res) => {
       ) AS cover_url
     FROM prompts p
     JOIN users u ON u.id = p.author_id
-    WHERE ${conditions.join(" AND ")}
-    ORDER BY p.created_at DESC
-    LIMIT 60
+    WHERE ${whereSql}
+    ORDER BY ${orderSql}
+    LIMIT $${limitParamIndex}
     `,
     params
   );
 
-  success(res, result.rows.map(toPromptListItem));
+  const facetParams = params.slice(0, limitParamIndex - 1);
+  const [modelFacets, styleFacets, colorFacets, usageFacets, totalRow] = await Promise.all([
+    pgClient.query<SearchFacetBucket>(
+      `
+      SELECT model AS value, COUNT(*)::INT AS count
+      FROM prompts p, UNNEST(p.model_ids) AS model
+      WHERE ${whereSql}
+      GROUP BY model
+      ORDER BY count DESC, model ASC
+      LIMIT 12
+      `,
+      facetParams
+    ),
+    pgClient.query<SearchFacetBucket>(
+      `
+      SELECT tag AS value, COUNT(*)::INT AS count
+      FROM prompts p, UNNEST(p.style_tags) AS tag
+      WHERE ${whereSql}
+      GROUP BY tag
+      ORDER BY count DESC, tag ASC
+      LIMIT 16
+      `,
+      facetParams
+    ),
+    pgClient.query<SearchFacetBucket>(
+      `
+      SELECT tag AS value, COUNT(*)::INT AS count
+      FROM prompts p, UNNEST(p.color_tags) AS tag
+      WHERE ${whereSql}
+      GROUP BY tag
+      ORDER BY count DESC, tag ASC
+      LIMIT 16
+      `,
+      facetParams
+    ),
+    pgClient.query<SearchFacetBucket>(
+      `
+      SELECT tag AS value, COUNT(*)::INT AS count
+      FROM prompts p, UNNEST(p.usage_tags) AS tag
+      WHERE ${whereSql}
+      GROUP BY tag
+      ORDER BY count DESC, tag ASC
+      LIMIT 16
+      `,
+      facetParams
+    ),
+    pgClient.query<{ total: string }>(
+      `SELECT COUNT(*)::TEXT AS total FROM prompts p WHERE ${whereSql}`,
+      facetParams
+    )
+  ]);
+
+  const items = await Promise.all(listResult.rows.map(toPromptListItem));
+  const meta: PromptListMeta = {
+    total: Number(totalRow.rows[0]?.total ?? items.length),
+    took_ms: Date.now() - startedAt,
+    sort,
+    facets: {
+      model_ids: modelFacets.rows,
+      style_tags: styleFacets.rows,
+      color_tags: colorFacets.rows,
+      usage_tags: usageFacets.rows
+    }
+  };
+
+  success(res, items, meta as unknown as Record<string, unknown>);
 });
 
 app.get("/v1/prompts/me", requireAuth, async (req, res) => {
@@ -672,7 +954,8 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
     [user.id]
   );
 
-  success(res, result.rows.map(toPromptListItem));
+  const items = await Promise.all(result.rows.map(toPromptListItem));
+  success(res, items);
 });
 
 app.get("/v1/prompts/:id", async (req, res) => {
@@ -692,6 +975,64 @@ app.get("/v1/prompts/:id", async (req, res) => {
   }
 
   success(res, prompt);
+});
+
+app.get("/v1/prompts/:id/related", async (req, res) => {
+  const targetId = req.params.id;
+  const target = await pgClient.query<{ model_ids: string[]; style_tags: string[] }>(
+    `SELECT model_ids, style_tags FROM prompts WHERE id = $1 LIMIT 1`,
+    [targetId]
+  );
+  const targetRow = target.rows[0];
+  if (!targetRow) {
+    fail(res, 404, "NOT_FOUND", "Prompt not found");
+    return;
+  }
+
+  const result = await pgClient.query<PromptListRow>(
+    `
+    SELECT
+      p.id,
+      p.title,
+      LEFT(p.prompt_text, 180) AS excerpt,
+      p.model_ids,
+      array_to_string(p.model_ids, ' / ') AS model_label,
+      p.style_tags,
+      p.usage_tags,
+      p.color_tags,
+      u.nickname AS author,
+      p.like_count,
+      p.collect_count,
+      p.copy_count,
+      p.created_at,
+      p.status,
+      (
+        SELECT pi.url
+        FROM prompt_images pi
+        WHERE pi.prompt_id = p.id
+        ORDER BY pi.sort_order ASC
+        LIMIT 1
+      ) AS cover_url,
+      (
+        cardinality(ARRAY(SELECT UNNEST(p.model_ids) INTERSECT SELECT UNNEST($2::TEXT[])))
+        + cardinality(ARRAY(SELECT UNNEST(p.style_tags) INTERSECT SELECT UNNEST($3::VARCHAR[])))
+      ) AS overlap_score
+    FROM prompts p
+    JOIN users u ON u.id = p.author_id
+    WHERE p.status = 'approved'
+      AND p.id <> $1
+      AND (
+        p.model_ids && $2::TEXT[]
+        OR p.style_tags && $3::VARCHAR[]
+      )
+    ORDER BY overlap_score DESC, p.like_count DESC, p.created_at DESC
+    LIMIT 6
+    `,
+    [targetId, targetRow.model_ids, targetRow.style_tags]
+  );
+
+  const items = await Promise.all(result.rows.map(toPromptListItem));
+  success(res, items);
 });
 
 app.post("/v1/prompts", requireAuth, async (req, res) => {
