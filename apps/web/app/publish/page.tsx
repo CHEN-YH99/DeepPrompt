@@ -13,10 +13,13 @@ function getPublishErrorMessage(error?: string) {
     return "请先登录再发布 Prompt。";
   }
   if (error === "invalid_prompt_payload") {
-    return "标题、Prompt、模型和示例图链接不能为空。";
+    return "标题、Prompt、模型，以及图片文件或示例图链接不能为空。";
   }
   if (error === "api_unreachable") {
     return "后端服务不可达，请确认 API 服务已启动。";
+  }
+  if (error === "upload_failed") {
+    return "图片上传失败，请检查文件格式、数量或大小后重试。";
   }
   if (error === "publish_failed") {
     return "发布失败，请检查字段后重试。";
@@ -45,13 +48,13 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
             </h1>
             <p className="lede">
               页面结构对应 PRD 的四步发布路径：基础信息、图片上传、标签完善、预览确认。
-              当前第二关先用图片 URL 打通主链路，R2 直传留到后续关卡，别一口吃成胖虎。
+              现在已经支持 1~6 张本地图片上传，保留单张图片 URL 兜底输入，先把主链路跑顺再说。
             </p>
             <div className="panel-grid" style={{ marginTop: 18 }}>
               {[
                 "STEP 01 / BASE INFO",
-                "STEP 02 / IMAGE URL",
-                "STEP 03 / SUBMIT REVIEW"
+                "STEP 02 / 1-6 IMAGE FILES",
+                "STEP 03 / PUBLISH OR SAVE DRAFT"
               ].map((item) => (
                 <div className="telemetry-card" key={item}>
                   <div className="card-value">{item}</div>
@@ -62,15 +65,15 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
           <div className="section" data-unit="UNIT / PUB-02">
             <SectionHeader
               eyebrow="[ REVIEW POLICY ]"
-              title="MODERATION PATH"
-              copy="发布后先进入待审核状态，作者可立刻在我的 Prompt 看到记录。"
+              title="VISIBILITY PATH"
+              copy="草稿只在我的 Prompt 可见；正式发布会立即进入公开列表和详情页。"
             />
             <div className="card-list" style={{ marginTop: 18 }}>
               {[
                 "1 / LOGIN REQUIRED",
                 "2 / FILL PROMPT CORE FIELDS",
-                "3 / PROVIDE IMAGE URL",
-                "4 / QUEUE FOR REVIEW"
+                "3 / UPLOAD 1-6 IMAGES OR USE URL",
+                "4 / GO LIVE OR SAVE DRAFT"
               ].map((item) => (
                 <div className="telemetry-card" key={item}>
                   <div className="card-value">{item}</div>
@@ -114,7 +117,12 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                 <div className="card-value">NEGATIVE PROMPT</div>
               </div>
             </div>
-            <form action="/api/prompts" method="post" style={{ marginTop: 18 }}>
+            <form
+              action="/api/prompts"
+              encType="multipart/form-data"
+              method="post"
+              style={{ marginTop: 18 }}
+            >
               <div className="form-split">
                 <div className="section" data-unit="FORM / LEFT">
                   <div className="form-stack">
@@ -201,17 +209,29 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     </div>
                     <div className="field">
                       <label className="field-label" htmlFor="images">
-                        IMAGE URL / MVP SLOT
+                        IMAGE FILES / 1-6
+                      </label>
+                      <input
+                        accept="image/*"
+                        id="images"
+                        multiple
+                        name="images"
+                        type="file"
+                      />
+                      <div className="field-hint">优先上传本地图片，最多 6 张，每张不超过 10MB。</div>
+                    </div>
+                    <div className="field">
+                      <label className="field-label" htmlFor="image-url">
+                        IMAGE URL / FALLBACK
                       </label>
                       <input
                         defaultValue="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80"
-                        id="images"
+                        id="image-url"
                         name="image_url"
-                        required
                         type="url"
                       />
                       <div className="field-hint">
-                        MVP 阶段先提交图片 URL；R2 预签名上传留到后续关卡。
+                        没有本地文件时，可退回单张图片 URL。两者至少提供一种，别空着装酷。
                       </div>
                     </div>
                   </div>
@@ -219,7 +239,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
               </div>
               <div className="action-row" style={{ marginTop: 18 }}>
                 <button className="action" name="intent" type="submit" value="submit">
-                  SUBMIT FOR REVIEW
+                  PUBLISH LIVE
                 </button>
                 <button className="ghost-action" name="intent" type="submit" value="draft">
                   SAVE DRAFT

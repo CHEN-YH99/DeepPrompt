@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { CopyPromptButton } from "@/components/copy-prompt-button";
+import { PromptGallery } from "@/components/prompt-gallery";
 import { Shell } from "@/components/shell";
 import { fetchPromptRecordById, fetchPromptRecords } from "@/lib/data";
 
@@ -7,12 +9,19 @@ type PromptDetailPageProps = {
   params: Promise<{
     id: string;
   }>;
+  searchParams?: Promise<{
+    created?: string;
+  }>;
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function PromptDetailPage({ params }: PromptDetailPageProps) {
+export default async function PromptDetailPage({
+  params,
+  searchParams
+}: PromptDetailPageProps) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
   const prompt = await fetchPromptRecordById(id, accessToken);
@@ -24,6 +33,10 @@ export default async function PromptDetailPage({ params }: PromptDetailPageProps
   const relatedPrompts = (await fetchPromptRecords())
     .filter((item) => item.id !== prompt.id)
     .slice(0, 2);
+  const createdMessage =
+    resolvedSearchParams?.created === "1"
+      ? "Prompt 已发布成功，现在前台已经能直接看到。"
+      : "";
 
   return (
     <Shell activePath="">
@@ -33,12 +46,9 @@ export default async function PromptDetailPage({ params }: PromptDetailPageProps
             <div className="eyebrow">[ PROMPT DOSSIER / {prompt.id} ]</div>
             <h1 className="headline">{prompt.title}</h1>
             <p className="lede">{prompt.excerpt}</p>
+            {createdMessage ? <p className="lede">{createdMessage}</p> : null}
             <div className="action-row">
-              <form action={`/api/prompts/${prompt.id}/copy`} method="post">
-                <button className="action" type="submit">
-                  RECORD COPY
-                </button>
-              </form>
+              <CopyPromptButton promptId={prompt.id} promptText={prompt.promptText} />
               <button className="ghost-action" type="button">
                 OPEN MODEL LINK
               </button>
@@ -51,9 +61,7 @@ export default async function PromptDetailPage({ params }: PromptDetailPageProps
 
         <section className="detail-grid page-grid" style={{ marginTop: 14 }}>
           <div className="section media-panel" data-unit="UNIT / MEDIA-11">
-            <div className="prompt-thumb" style={{ minHeight: 560 }}>
-              <img alt={prompt.title} src={prompt.cover} />
-            </div>
+            <PromptGallery images={prompt.images} title={prompt.title} />
             <div className="metric-board" style={{ marginTop: 16 }}>
               <div>
                 <div className="mini-label">LIKE COUNT</div>

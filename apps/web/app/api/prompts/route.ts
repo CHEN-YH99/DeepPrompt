@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { CreatePromptInput } from "@deepprompt/types";
+import type { CreatePromptInput, UploadImagesResponse } from "@deepprompt/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
@@ -42,10 +42,61 @@ export async function POST(request: NextRequest) {
   const promptText = String(formData.get("prompt_text") ?? "").trim();
   const modelId = String(formData.get("model_id") ?? "").trim();
   const imageUrl = String(formData.get("image_url") ?? "").trim();
-  const status = formData.get("intent") === "draft" ? "draft" : "pending";
+  const uploadedFiles = formData
+    .getAll("images")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0)
+    .slice(0, 6);
+  const status = formData.get("intent") === "draft" ? "draft" : "approved";
 
-  if (!title || !promptText || !modelId || !imageUrl) {
+  if (!title || !promptText || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
     return redirectWithError(request, "invalid_prompt_payload");
+  }
+
+  let images: CreatePromptInput["images"] = [];
+  if (uploadedFiles.length > 0) {
+    const uploadFormData = new FormData();
+    for (const file of uploadedFiles) {
+      uploadFormData.append("images", file, file.name);
+    }
+
+    let uploadResponse: Response;
+    try {
+      uploadResponse = await fetch(`${apiBaseUrl}/v1/uploads`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`
+        },
+        body: uploadFormData,
+        cache: "no-store"
+      });
+    } catch {
+      return redirectWithError(request, "api_unreachable");
+    }
+
+    if (!uploadResponse.ok) {
+      return redirectWithError(request, "upload_failed");
+    }
+
+    const uploadJson = (await uploadResponse.json()) as { data?: UploadImagesResponse };
+    images = (uploadJson.data?.files ?? []).map((file) => ({
+      url: file.url,
+      thumb_url: file.thumb_url,
+      width: file.width,
+      height: file.height,
+      file_size: file.file_size
+    }));
+  }
+
+  if (images.length === 0 && imageUrl) {
+    images = [
+      {
+        url: imageUrl,
+        thumb_url: imageUrl,
+        width: 1200,
+        height: 800,
+        file_size: 0
+      }
+    ];
   }
 
   const payload: CreatePromptInput = {
@@ -58,15 +109,7 @@ export async function POST(request: NextRequest) {
     color_tags: splitTags(formData.get("color_tags")),
     usage_note: String(formData.get("usage_note") ?? "").trim() || undefined,
     params_json: parseParams(formData.get("params_json")),
-    images: [
-      {
-        url: imageUrl,
-        thumb_url: imageUrl,
-        width: 1200,
-        height: 800,
-        file_size: 0
-      }
-    ],
+    images,
     status
   };
 
@@ -87,6 +130,15 @@ export async function POST(request: NextRequest) {
 
   if (!response.ok) {
     return redirectWithError(request, "publish_failed");
+  }
+
+  const json = (await response.json()) as {
+    data?: { id?: string };
+  };
+  const createdPromptId = json.data?.id;
+
+  if (createdPromptId && status !== "draft") {
+    return NextResponse.redirect(new URL(`/prompts/${createdPromptId}?created=1`, request.url));
   }
 
   return NextResponse.redirect(new URL("/me/prompts?created=1", request.url));

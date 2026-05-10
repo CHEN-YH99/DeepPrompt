@@ -28,6 +28,10 @@ export type PromptRecord = {
   negativePrompt?: string;
   params: string[];
   note: string;
+  images: Array<{
+    url: string;
+    thumbUrl?: string | null;
+  }>;
 };
 
 export type ModelRecord = {
@@ -99,7 +103,14 @@ export const prompts: PromptRecord[] = [
       "low detail, blurry eyes, extra fingers, flat lighting, oversaturated skin, cartoon rendering",
     params: ["AR 4:5", "QUALITY HIGH", "DETAIL 85", "SEED 2204"],
     note:
-      "适合做首页 Banner 和人物专题封面，建议搭配冷色城市背景。"
+      "适合做首页 Banner 和人物专题封面，建议搭配冷色城市背景。",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+        thumbUrl:
+          "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80"
+      }
+    ]
   },
   {
     id: "dp-002",
@@ -125,7 +136,14 @@ export const prompts: PromptRecord[] = [
       "rounded shapes, toy aesthetics, soft bloom, pastel colors, cluttered background",
     params: ["AR 3:2", "CFG 7", "STEPS 32", "UPSCALE OFF"],
     note:
-      "适合产品图和专题策展头图，建议和机械字体系统配合。"
+      "适合产品图和专题策展头图，建议和机械字体系统配合。",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+        thumbUrl:
+          "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
+      }
+    ]
   },
   {
     id: "dp-003",
@@ -149,7 +167,14 @@ export const prompts: PromptRecord[] = [
       "vast editorial landscape, declassified blueprint feeling, long horizon, tactical fog, black white palette, structural grid lines, restrained geometry, print editorial composition",
     params: ["--AR 16:9", "--STYLIZE 120", "--CHAOS 8"],
     note:
-      "适合做搜索结果页和专题落地页背景，留白空间充足。"
+      "适合做搜索结果页和专题落地页背景，留白空间充足。",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+        thumbUrl:
+          "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80"
+      }
+    ]
   },
   {
     id: "dp-004",
@@ -175,7 +200,14 @@ export const prompts: PromptRecord[] = [
       "cute icons, consumer UI, glassmorphism, rounded buttons, pastel palette",
     params: ["AR 21:9", "DETAIL 90", "NOISE MID", "MOOD ALERT"],
     note:
-      "很适合你的原始机械界面方向，本身就能拿来做视觉参考。"
+      "很适合你的原始机械界面方向，本身就能拿来做视觉参考。",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
+        thumbUrl:
+          "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80"
+      }
+    ]
   }
 ];
 
@@ -282,7 +314,21 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
     note:
       "usage_note" in prompt && prompt.usage_note
         ? prompt.usage_note
-        : "该 Prompt 来自后端主链路，审核状态和指标由 API 返回。"
+        : "该 Prompt 来自后端主链路，审核状态和指标由 API 返回。",
+    images:
+      "images" in prompt && Array.isArray(prompt.images) && prompt.images.length > 0
+        ? prompt.images.map((image) => ({
+            url: image.url,
+            thumbUrl: image.thumb_url
+          }))
+        : [
+            {
+              url:
+                prompt.cover_url ??
+                "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
+              thumbUrl: prompt.cover_url
+            }
+          ]
   };
 }
 

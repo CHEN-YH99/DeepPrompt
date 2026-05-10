@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
 
 type PromptCardProps = {
@@ -31,11 +32,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
         <Link className="micro-action" href={`/prompts/${prompt.id}`}>
           OPEN DOSSIER
         </Link>
-        <form action={`/api/prompts/${prompt.id}/copy`} method="post">
-          <button className="ghost-action" type="submit">
-            RECORD COPY
-          </button>
-        </form>
+        <CopyPromptButton promptId={prompt.id} promptText={prompt.promptText} />
       </div>
     </article>
   );

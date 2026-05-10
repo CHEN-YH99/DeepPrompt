@@ -86,6 +86,18 @@ export type PromptDetail = PromptListItem & {
   images: PromptImageRecord[];
 };
 
+export type UploadedImageAsset = {
+  url: string;
+  thumb_url: string | null;
+  width: number;
+  height: number;
+  file_size: number;
+};
+
+export type UploadImagesResponse = {
+  files: UploadedImageAsset[];
+};
+
 export type CreatePromptImageInput = {
   url: string;
   thumb_url?: string | null;
@@ -105,5 +117,5 @@ export type CreatePromptInput = {
   usage_note?: string;
   params_json: Record<string, unknown>;
   images?: CreatePromptImageInput[];
-  status?: Extract<PromptStatus, "draft" | "pending">;
+  status?: Extract<PromptStatus, "draft" | "pending" | "approved">;
 };
