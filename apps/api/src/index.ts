@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -9,8 +8,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { type NextFunction, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
-import { imageSize } from "image-size";
-import multer from "multer";
 import type {
   ApiError,
   ApiSuccess,
@@ -21,8 +18,7 @@ import type {
   PromptImageRecord,
   PromptListItem,
   PromptStatus,
-  RegisterRequest,
-  UploadImagesResponse
+  RegisterRequest
 } from "@deepprompt/types";
 import { Client } from "pg";
 import { createClient, type RedisClientType } from "redis";
@@ -30,7 +26,6 @@ import { createClient, type RedisClientType } from "redis";
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFile);
 const rootEnvPath = path.resolve(currentDir, "../../../.env");
-const uploadRoot = path.resolve(currentDir, "../uploads");
 
 dotenv.config({ path: rootEnvPath });
 
@@ -86,7 +81,6 @@ const supportedModels: ModelSummary[] = [
 
 const app = express();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3010);
-const publicApiBaseUrl = process.env.API_PUBLIC_BASE_URL?.trim() || null;
 const jwtSecret = process.env.JWT_SECRET ?? "replace_me_with_real_jwt_secret";
 const jwtRefreshSecret =
   process.env.JWT_REFRESH_SECRET ?? "replace_me_with_real_jwt_refresh_secret";
@@ -109,14 +103,6 @@ if (redisUrl) {
   });
 }
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    files: 6,
-    fileSize: 10 * 1024 * 1024
-  }
-});
-
 app.use(
   cors({
     origin: ["http://localhost:3000"],
@@ -125,7 +111,6 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
-app.use("/uploads", express.static(uploadRoot));
 
 function success<T>(res: Response, data: T, meta?: Record<string, unknown>) {
   const body: ApiSuccess<T> = { data, meta };
@@ -307,39 +292,6 @@ function getModelLabel(modelIds: string[]) {
     .filter(Boolean);
 
   return labels.length > 0 ? labels.join(" / ") : "UNKNOWN MODEL";
-}
-
-function buildPublicAssetUrl(req: Request, assetPath: string) {
-  const baseUrl = publicApiBaseUrl ?? `${req.protocol}://${req.get("host")}`;
-  return new URL(assetPath, `${baseUrl}/`).toString();
-}
-
-async function persistUploadedImage(req: Request, file: Express.Multer.File) {
-  const now = new Date();
-  const year = String(now.getFullYear());
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const ext = path.extname(file.originalname || "").toLowerCase() || ".bin";
-  const fileName = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-  const relativePath = path.posix.join(year, month, day, fileName);
-  const targetPath = path.resolve(uploadRoot, relativePath);
-
-  if (!targetPath.startsWith(uploadRoot)) {
-    throw new Error("Resolved upload path escaped upload root");
-  }
-
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.writeFile(targetPath, file.buffer);
-
-  const dimensions = imageSize(file.buffer);
-
-  return {
-    url: buildPublicAssetUrl(req, `/uploads/${relativePath}`),
-    thumb_url: null,
-    width: dimensions.width ?? 1200,
-    height: dimensions.height ?? 800,
-    file_size: file.size
-  };
 }
 
 function toPromptListItem(row: PromptListRow): PromptListItem {
@@ -626,24 +578,6 @@ app.get("/v1/auth/me", requireAuth, async (req, res) => {
 
 app.get("/v1/models", (_req, res) => {
   success(res, supportedModels);
-});
-
-app.post("/v1/uploads", requireAuth, upload.array("images", 6), async (req, res) => {
-  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-  if (files.length === 0) {
-    fail(res, 400, "BAD_REQUEST", "At least one image file is required");
-    return;
-  }
-
-  try {
-    const assets = await Promise.all(files.map((file) => persistUploadedImage(req, file)));
-    success<UploadImagesResponse>(res, {
-      files: assets
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to upload images";
-    fail(res, 500, "INTERNAL_ERROR", message);
-  }
 });
 
 app.get("/v1/prompts", async (req, res) => {

@@ -1,7 +1,13 @@
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
-import type { CreatePromptInput, UploadImagesResponse } from "@deepprompt/types";
+import type { CreatePromptInput } from "@deepprompt/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
+const uploadRoot = path.resolve(process.cwd(), "public", "uploads");
+
+export const runtime = "nodejs";
 
 function splitTags(value: FormDataEntryValue | null) {
   return String(value ?? "")
@@ -31,6 +37,33 @@ function redirectWithError(request: NextRequest, error: string) {
   return NextResponse.redirect(new URL(`/publish?error=${error}`, request.url));
 }
 
+async function persistUploadedFile(file: File) {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const ext = path.extname(file.name || "").toLowerCase() || ".bin";
+  const fileName = `${Date.now()}-${crypto.randomUUID()}${ext}`;
+  const relativePath = path.posix.join(year, month, day, fileName);
+  const targetPath = path.resolve(uploadRoot, relativePath);
+
+  if (!targetPath.startsWith(uploadRoot)) {
+    throw new Error("Resolved upload path escaped upload root");
+  }
+
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  await fs.writeFile(targetPath, bytes);
+
+  return {
+    url: `/uploads/${relativePath}`,
+    thumb_url: `/uploads/${relativePath}`,
+    width: 1200,
+    height: 800,
+    file_size: file.size
+  };
+}
+
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   if (!accessToken) {
@@ -54,37 +87,11 @@ export async function POST(request: NextRequest) {
 
   let images: CreatePromptInput["images"] = [];
   if (uploadedFiles.length > 0) {
-    const uploadFormData = new FormData();
-    for (const file of uploadedFiles) {
-      uploadFormData.append("images", file, file.name);
-    }
-
-    let uploadResponse: Response;
     try {
-      uploadResponse = await fetch(`${apiBaseUrl}/v1/uploads`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${accessToken}`
-        },
-        body: uploadFormData,
-        cache: "no-store"
-      });
+      images = await Promise.all(uploadedFiles.map((file) => persistUploadedFile(file)));
     } catch {
-      return redirectWithError(request, "api_unreachable");
-    }
-
-    if (!uploadResponse.ok) {
       return redirectWithError(request, "upload_failed");
     }
-
-    const uploadJson = (await uploadResponse.json()) as { data?: UploadImagesResponse };
-    images = (uploadJson.data?.files ?? []).map((file) => ({
-      url: file.url,
-      thumb_url: file.thumb_url,
-      width: file.width,
-      height: file.height,
-      file_size: file.file_size
-    }));
   }
 
   if (images.length === 0 && imageUrl) {
