@@ -4,11 +4,12 @@ import { PromptCard } from "@/components/prompt-card";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import {
-  SEARCH_SORT_OPTIONS,
+  SEARCH_SORT_VALUES,
   fetchModels,
   fetchPromptList,
   searchHotTerms
 } from "@/lib/data";
+import { getDictionary, applyVars } from "@/lib/i18n";
 import type { SearchSort } from "@deepprompt/types";
 
 type SearchPageProps = {
@@ -52,8 +53,7 @@ function pickList(value: string | string[] | undefined): string[] {
 
 function pickSort(value: string | string[] | undefined): SearchSort {
   const candidate = Array.isArray(value) ? value[0] : value;
-  const allowed = SEARCH_SORT_OPTIONS.map((option) => option.value);
-  return (allowed as string[]).includes(candidate ?? "") ? (candidate as SearchSort) : "latest";
+  return (SEARCH_SORT_VALUES as string[]).includes(candidate ?? "") ? (candidate as SearchSort) : "latest";
 }
 
 function pickKeyword(value: string | string[] | undefined): string {
@@ -62,6 +62,15 @@ function pickKeyword(value: string | string[] | undefined): string {
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const dict = getDictionary();
+  const sortLabelMap: Record<SearchSort, string> = {
+    latest: dict.search.sortLatest,
+    trending_weekly: dict.search.sortTrendingWeekly,
+    trending_monthly: dict.search.sortTrendingMonthly,
+    most_copied: dict.search.sortMostCopied,
+    most_collected: dict.search.sortMostCollected
+  };
+
   const resolved = (searchParams ? await searchParams : {}) ?? {};
   const keyword = pickKeyword(resolved.q);
   const selectedModelIds = pickList(resolved.model_ids).concat(pickList(resolved.model_id));
@@ -83,7 +92,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   ]);
 
   const facets = snapshot.meta?.facets;
-  const totalLabel = snapshot.meta ? `${snapshot.meta.total} HITS / ${snapshot.meta.tookMs}MS` : `${snapshot.items.length} HITS`;
+  const totalLabel = snapshot.meta
+    ? applyVars(dict.search.resultStat, {
+        sort: sortLabelMap[snapshot.meta.sort],
+        total: snapshot.meta.total,
+        took: snapshot.meta.tookMs
+      })
+    : applyVars(dict.search.resultStat, {
+        sort: sortLabelMap[sort],
+        total: snapshot.items.length,
+        took: 0
+      });
   const styleOptions = (facets?.styleTags.map((bucket) => bucket.value) ?? []).concat(
     STYLE_OPTIONS.filter((option) => !facets?.styleTags.some((bucket) => bucket.value === option))
   );
@@ -99,31 +118,29 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / SEARCH-01">
-            <div className="eyebrow">[ PROMPT SEARCH / FILTER ARRAY ]</div>
+            <div className="eyebrow">{dict.search.heroKicker}</div>
             <h1 className="headline">
-              SEARCH
+              {dict.search.heroTitleLine1}
               <br />
-              FIELD
+              {dict.search.heroTitleLine2}
               <br />
-              MATRIX
+              {dict.search.heroTitleLine3}
             </h1>
-            <p className="lede">
-              对齐 PRD 的搜索与筛选能力，关键词走 PostgreSQL 全文检索，模型、风格、色调、用途、排序全部联动并写回 URL。
-            </p>
+            <p className="lede">{dict.search.heroLede}</p>
             <div className="action-row">
               <a className="action" href="#query-panel">
-                EXECUTE QUERY
+                {dict.common.actions.executeQuery}
               </a>
               <a className="ghost-action" href="/search">
-                RESET FILTERS
+                {dict.common.actions.resetFilters}
               </a>
             </div>
           </div>
           <div className="section" data-unit="UNIT / SEARCH-02">
             <SectionHeader
-              eyebrow="[ HOT KEYWORDS ]"
-              title="LIVE TREND BUFFER"
-              copy="MVP 阶段热搜词先走静态配置，后续切到 Redis 排行榜。"
+              eyebrow={dict.search.hotEyebrow}
+              title={dict.search.hotTitle}
+              copy={dict.search.hotCopy}
             />
             <div className="card-list" style={{ marginTop: 18 }}>
               {searchHotTerms.map((term, index) => (
@@ -133,7 +150,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   key={term}
                   style={{ display: "block" }}
                 >
-                  <div className="card-kicker">TERM / {index + 1}</div>
+                  <div className="card-kicker">
+                    {dict.search.hotRank} {index + 1}
+                  </div>
                   <div className="card-value">{term}</div>
                 </Link>
               ))}
@@ -144,20 +163,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <section className="matrix-grid page-grid" style={{ marginTop: 14 }}>
           <aside className="section filter-panel" data-unit="UNIT / FILTER-05">
             <SectionHeader
-              eyebrow="[ FILTER CONFIG ]"
-              title="QUERY PANEL"
-              copy="模型来自 model_registry，标签维度由后端 facet 聚合返回，多选 + 排序联动。"
+              eyebrow={dict.search.filterEyebrow}
+              title={dict.search.filterTitle}
+              copy={dict.search.filterCopy}
             />
             <form className="filter-stack" id="query-panel" method="get" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="keyword">
-                  KEYWORD / TITLE + PROMPT + TAG
+                  {dict.search.keywordLabel}
                 </label>
                 <input defaultValue={keyword} id="keyword" name="q" />
               </div>
 
               <div className="field">
-                <div className="field-label">MODEL REGISTRY</div>
+                <div className="field-label">{dict.search.modelRegistry}</div>
                 <div className="checkbox-grid">
                   {models.map((model) => {
                     const facetCount = facets?.modelIds.find((bucket) => bucket.value === model.id)?.count;
@@ -180,7 +199,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </div>
 
               <div className="field">
-                <div className="field-label">STYLE TAGS</div>
+                <div className="field-label">{dict.search.styleTags}</div>
                 <div className="checkbox-grid">
                   {styleOptions.slice(0, 10).map((option) => {
                     const bucket = facets?.styleTags.find((item) => item.value === option);
@@ -203,7 +222,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </div>
 
               <div className="field">
-                <div className="field-label">COLOR TONE</div>
+                <div className="field-label">{dict.search.colorTags}</div>
                 <div className="checkbox-grid">
                   {colorOptions.slice(0, 8).map((option) => {
                     const bucket = facets?.colorTags.find((item) => item.value === option);
@@ -226,7 +245,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </div>
 
               <div className="field">
-                <div className="field-label">USAGE SCENE</div>
+                <div className="field-label">{dict.search.usageScene}</div>
                 <div className="checkbox-grid">
                   {usageOptions.slice(0, 8).map((option) => {
                     const bucket = facets?.usageTags.find((item) => item.value === option);
@@ -250,31 +269,31 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
               <div className="field">
                 <label className="field-label" htmlFor="sort">
-                  SORT
+                  {dict.search.sortLabel}
                 </label>
                 <select defaultValue={sort} id="sort" name="sort">
-                  {SEARCH_SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  {SEARCH_SORT_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {sortLabelMap[value]}
                     </option>
                   ))}
                 </select>
               </div>
 
               <button className="action" type="submit">
-                EXECUTE QUERY
+                {dict.common.actions.executeQuery}
               </button>
             </form>
           </aside>
           <div className="section" data-unit="UNIT / RESULT-08">
             <SectionHeader
-              eyebrow="[ RESULT FEED ]"
-              title="MATCHED DOSSIERS"
-              copy={`SORT / ${sort.toUpperCase()} / ${totalLabel}`}
+              eyebrow={dict.search.resultEyebrow}
+              title={dict.search.resultTitle}
+              copy={totalLabel}
             />
             {snapshot.items.length === 0 ? (
               <p className="mono-copy" style={{ marginTop: 18 }}>
-                没有匹配的 Prompt，先放宽筛选条件再继续探索。
+                {dict.search.emptyHint}
               </p>
             ) : (
               <div className="prompt-grid" style={{ marginTop: 18 }}>

@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
       cache: "no-store"
     });
   } catch {
-    return NextResponse.redirect(new URL("/register?error=api_unreachable", request.url));
+    return NextResponse.redirect(new URL("/register?error=api_unreachable", request.url), {
+      status: 303
+    });
   }
 
   if (!response.ok) {
@@ -39,8 +41,10 @@ export async function POST(request: NextRequest) {
     } catch {
       error = "register_failed";
     }
-    return NextResponse.redirect(new URL(`/register?error=${error}`, request.url));
+    return NextResponse.redirect(new URL(`/register?error=${error}`, request.url), {
+      status: 303
+    });
   }
 
-  return NextResponse.redirect(new URL("/login?registered=1", request.url));
+  return NextResponse.redirect(new URL("/login?registered=1", request.url), { status: 303 });
 }

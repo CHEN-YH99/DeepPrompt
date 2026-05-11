@@ -2,12 +2,14 @@ import Link from "next/link";
 
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
+import { getDictionary } from "@/lib/i18n";
 
 type PromptCardProps = {
   prompt: PromptRecord;
 };
 
 export function PromptCard({ prompt }: PromptCardProps) {
+  const dict = getDictionary();
   return (
     <article className="prompt-card">
       <div className="prompt-thumb">
@@ -24,15 +26,25 @@ export function PromptCard({ prompt }: PromptCardProps) {
         ))}
       </div>
       <div className="kpi-row">
-        <span>LIKE {prompt.likes}</span>
-        <span>COLLECT {prompt.collects}</span>
-        <span>COPY {prompt.copies}</span>
+        <span>
+          {dict.common.metrics.like} {prompt.likes}
+        </span>
+        <span>
+          {dict.common.metrics.collect} {prompt.collects}
+        </span>
+        <span>
+          {dict.common.metrics.copy} {prompt.copies}
+        </span>
       </div>
       <div className="action-row">
         <Link className="micro-action" href={`/prompts/${prompt.id}`}>
-          OPEN DOSSIER
+          {dict.common.actions.openDossier}
         </Link>
-        <CopyPromptButton promptId={prompt.id} promptText={prompt.promptText} />
+        <CopyPromptButton
+          labels={dict.common.actions}
+          promptId={prompt.id}
+          promptText={prompt.promptText}
+        />
       </div>
     </article>
   );

@@ -1,5 +1,6 @@
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
+import { getDictionary } from "@/lib/i18n";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -8,47 +9,40 @@ type LoginPageProps = {
   }>;
 };
 
-function getLoginMessage(searchParams?: { error?: string; registered?: string }) {
-  if (searchParams?.registered === "1") {
-    return "注册成功，请使用新账号登录。";
-  }
-  if (searchParams?.error === "invalid_credentials") {
-    return "账号或密码错误，请重试。";
-  }
-  if (searchParams?.error === "api_unreachable") {
-    return "后端服务不可达，请确认 API 服务已启动。";
-  }
-  return "";
-}
-
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const dict = getDictionary();
+
+  function getLoginMessage(sp?: { error?: string; registered?: string }) {
+    if (sp?.registered === "1") return dict.login.msgRegistered;
+    if (sp?.error === "invalid_credentials") return dict.login.msgInvalid;
+    if (sp?.error === "api_unreachable") return dict.login.msgApiUnreachable;
+    return "";
+  }
+
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const message = getLoginMessage(resolvedSearchParams);
+
   return (
     <Shell activePath="/login">
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / AUTH-01">
-            <div className="eyebrow">[ AUTHENTICATION / ACCESS NODE ]</div>
+            <div className="eyebrow">{dict.login.heroKicker}</div>
             <h1 className="headline">
-              USER
+              {dict.login.heroTitleLine1}
               <br />
-              ACCESS
+              {dict.login.heroTitleLine2}
               <br />
-              GATE
+              {dict.login.heroTitleLine3}
             </h1>
-            <p className="lede">
-              登录页按需求文档支持邮箱 / 手机号注册和第三方登录预留。当前先以前端界面完整度为主，保留接入认证系统的结构。
-            </p>
-            <div className="ascii-rule">
-              [ EMAIL ] [ PHONE ] [ GOOGLE ] [ GITHUB ] [ WECHAT ]
-            </div>
+            <p className="lede">{dict.login.heroLede}</p>
+            <div className="ascii-rule">{dict.login.asciiRule}</div>
           </div>
           <div className="section" data-unit="UNIT / AUTH-02">
             <SectionHeader
-              eyebrow="[ LOGIN FORM ]"
-              title="SIGN-IN PANEL"
-              copy="视觉上维持战术终端风，交互上保留常规登录习惯，别为了风格把可用性也狠狠干没了。"
+              eyebrow={dict.login.formEyebrow}
+              title={dict.login.formTitle}
+              copy={dict.login.formCopy}
             />
             {message ? (
               <div
@@ -66,33 +60,33 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <form action="/api/auth/login" className="form-stack" method="post" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="account">
-                  EMAIL / PHONE
+                  {dict.login.account}
                 </label>
-                <input defaultValue="operator@deepprompt.ai" id="account" name="account" required />
+                <input id="account" name="account" required />
               </div>
               <div className="field">
                 <label className="field-label" htmlFor="password">
-                  PASSWORD
+                  {dict.login.password}
                 </label>
-                <input defaultValue="••••••••••••" id="password" name="password" required type="password" />
+                <input id="password" name="password" required type="password" />
               </div>
               <div className="action-row">
                 <button className="action" type="submit">
-                  ENTER SYSTEM
+                  {dict.common.actions.enterSystem}
                 </button>
                 <a className="ghost-action" href="/register">
-                  CREATE ACCOUNT
+                  {dict.common.actions.createAccount}
                 </a>
               </div>
               <div className="panel-grid">
                 <button className="ghost-action" type="button">
-                  GOOGLE OAUTH
+                  {dict.login.google}
                 </button>
                 <button className="ghost-action" type="button">
-                  GITHUB OAUTH
+                  {dict.login.github}
                 </button>
                 <button className="ghost-action" type="button">
-                  WECHAT OAUTH
+                  {dict.login.wechat}
                 </button>
               </div>
             </form>

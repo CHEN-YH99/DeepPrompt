@@ -1,9 +1,15 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import { PromptGallery } from "@/components/prompt-gallery";
 import { Shell } from "@/components/shell";
-import { fetchPromptRecordById, fetchPromptRecords } from "@/lib/data";
+import {
+  fetchModels,
+  fetchPromptRecordById,
+  fetchRelatedPromptRecords
+} from "@/lib/data";
+import { applyVars, getDictionary } from "@/lib/i18n";
 
 type PromptDetailPageProps = {
   params: Promise<{
@@ -20,6 +26,7 @@ export default async function PromptDetailPage({
   params,
   searchParams
 }: PromptDetailPageProps) {
+  const dict = getDictionary();
   const { id } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const cookieStore = await cookies();
@@ -30,30 +37,46 @@ export default async function PromptDetailPage({
     notFound();
   }
 
-  const relatedPrompts = (await fetchPromptRecords())
-    .filter((item) => item.id !== prompt.id)
-    .slice(0, 2);
-  const createdMessage =
-    resolvedSearchParams?.created === "1"
-      ? "Prompt 已发布成功，现在前台已经能直接看到。"
-      : "";
+  const [relatedPrompts, models] = await Promise.all([
+    fetchRelatedPromptRecords(prompt.id),
+    fetchModels()
+  ]);
+  const promptModels = models.filter((model) => prompt.modelIds.includes(model.id));
+  const paramEntries = Object.entries(prompt.paramsRecord);
+  const statusLabelMap: Record<typeof prompt.status, string> = {
+    approved: dict.common.status.approved,
+    pending: dict.common.status.pending,
+    draft: dict.common.status.draft
+  };
+
+  const createdMessage = resolvedSearchParams?.created === "1" ? dict.detail.createdNotice : "";
 
   return (
     <Shell activePath="">
       <main className="shell">
         <section className="page-grid">
           <div className="section" data-unit="UNIT / DETAIL-01">
-            <div className="eyebrow">[ PROMPT DOSSIER / {prompt.id} ]</div>
+            <div className="eyebrow">{applyVars(dict.detail.promptKicker, { id: prompt.id })}</div>
             <h1 className="headline">{prompt.title}</h1>
             <p className="lede">{prompt.excerpt}</p>
             {createdMessage ? <p className="lede">{createdMessage}</p> : null}
             <div className="action-row">
-              <CopyPromptButton promptId={prompt.id} promptText={prompt.promptText} />
+              <CopyPromptButton
+                labels={dict.common.actions}
+                promptId={prompt.id}
+                promptText={prompt.promptText}
+              />
+              {promptModels[0] ? (
+                <Link className="ghost-action" href={`/models/${promptModels[0].id}`}>
+                  {dict.detail.actionOpenModelZone}
+                </Link>
+              ) : (
+                <button className="ghost-action" type="button">
+                  {dict.detail.actionOpenModelLink}
+                </button>
+              )}
               <button className="ghost-action" type="button">
-                OPEN MODEL LINK
-              </button>
-              <button className="ghost-action" type="button">
-                REPORT ENTRY
+                {dict.detail.actionReport}
               </button>
             </div>
           </div>
@@ -64,65 +87,118 @@ export default async function PromptDetailPage({
             <PromptGallery images={prompt.images} title={prompt.title} />
             <div className="metric-board" style={{ marginTop: 16 }}>
               <div>
-                <div className="mini-label">LIKE COUNT</div>
+                <div className="mini-label">{dict.detail.metricLike}</div>
                 <div className="card-value">{prompt.likes}</div>
               </div>
               <div>
-                <div className="mini-label">COLLECT COUNT</div>
+                <div className="mini-label">{dict.detail.metricCollect}</div>
                 <div className="card-value">{prompt.collects}</div>
               </div>
               <div>
-                <div className="mini-label">COPY COUNT</div>
+                <div className="mini-label">{dict.detail.metricCopy}</div>
                 <div className="card-value">{prompt.copies}</div>
               </div>
               <div>
-                <div className="mini-label">STATUS</div>
-                <div className="card-value">{prompt.status}</div>
+                <div className="mini-label">{dict.detail.metricStatus}</div>
+                <div className="card-value">{statusLabelMap[prompt.status]}</div>
               </div>
             </div>
           </div>
           <div className="section detail-panel" data-unit="UNIT / META-04">
             <div className="detail-stack">
               <div>
-                <div className="field-label">PRIMARY MODEL</div>
-                <div className="card-value">{prompt.modelLabel}</div>
+                <div className="field-label">{dict.detail.primaryModel}</div>
+                {promptModels.length === 0 ? (
+                  <div className="card-value">{prompt.modelLabel}</div>
+                ) : (
+                  <div className="info-grid" style={{ marginTop: 8 }}>
+                    {promptModels.map((model) => (
+                      <Link className="model-tile" href={`/models/${model.id}`} key={model.id}>
+                        <div className="card-kicker">{model.vendor}</div>
+                        <div className="card-value">{model.displayName}</div>
+                        <p className="mono-copy">
+                          {dict.models.cardFormat} / {model.format.toUpperCase()} ·{" "}
+                          {dict.models.cardNegative} /{" "}
+                          {model.supportsNegative ? dict.home.negativeOn : dict.home.negativeOff} ·{" "}
+                          {dict.models.cardParams} / {model.paramSchema.length}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
-                <div className="field-label">PROMPT TEXT</div>
+                <div className="field-label">{dict.detail.promptText}</div>
                 <p className="detail-copy">{prompt.promptText}</p>
               </div>
               {prompt.negativePrompt ? (
                 <div>
-                  <div className="field-label">NEGATIVE PROMPT</div>
+                  <div className="field-label">{dict.detail.negativePrompt}</div>
                   <p className="detail-copy">{prompt.negativePrompt}</p>
                 </div>
               ) : null}
               <div>
-                <div className="field-label">PARAMETERS</div>
-                <div className="tag-row">
-                  {prompt.params.map((param) => (
-                    <span className="tag" key={param}>
-                      {param}
-                    </span>
-                  ))}
-                </div>
+                <div className="field-label">{dict.detail.parameters}</div>
+                {paramEntries.length === 0 ? (
+                  <p className="mono-copy">{dict.detail.paramNoData}</p>
+                ) : (
+                  <div className="list-table" style={{ marginTop: 8 }}>
+                    <div className="table-row head">
+                      <span>{dict.detail.paramKey}</span>
+                      <span>{dict.detail.paramValue}</span>
+                      <span>{dict.detail.paramSchemaLabel}</span>
+                      <span>{dict.detail.paramType}</span>
+                    </div>
+                    {paramEntries.map(([key, value]) => {
+                      const schemaField = promptModels
+                        .flatMap((model) => model.paramSchema)
+                        .find((field) => field.key === key);
+                      return (
+                        <div className="table-row" key={key}>
+                          <span>{key.toUpperCase()}</span>
+                          <span>{String(value)}</span>
+                          <span>{schemaField?.label ?? "—"}</span>
+                          <span>{(schemaField?.input_type ?? "text").toUpperCase()}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
-                <div className="field-label">STYLE TAGS</div>
+                <div className="field-label">{dict.detail.styleTags}</div>
                 <div className="tag-row">
                   {prompt.styleTags.map((tag) => (
-                    <span className="tag" key={tag}>
+                    <Link
+                      className="tag"
+                      href={`/search?style_tags=${encodeURIComponent(tag)}`}
+                      key={tag}
+                    >
                       {tag}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               </div>
               <div>
-                <div className="field-label">USAGE NOTE</div>
+                <div className="field-label">{dict.detail.colorTags}</div>
+                <div className="tag-row">
+                  {prompt.colorTags.map((tag) => (
+                    <Link
+                      className="tag"
+                      href={`/search?color_tags=${encodeURIComponent(tag)}`}
+                      key={tag}
+                    >
+                      {tag}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="field-label">{dict.detail.usageNote}</div>
                 <p className="detail-copy">{prompt.note}</p>
               </div>
               <div>
-                <div className="field-label">AUTHOR / TIME</div>
+                <div className="field-label">{dict.detail.authorTime}</div>
                 <p className="detail-copy">
                   {prompt.author} / {prompt.createdAt}
                 </p>
@@ -133,19 +209,25 @@ export default async function PromptDetailPage({
 
         <section className="page-grid" style={{ marginTop: 14 }}>
           <div className="section" data-unit="UNIT / LINK-17">
-            <div className="eyebrow">[ RELATED DOSSIERS ]</div>
-            <div className="library-grid">
-              {relatedPrompts.map((item) => (
-                <div className="library-card" key={item.id}>
-                  <div className="card-kicker">{item.modelLabel}</div>
-                  <div className="card-value">{item.title}</div>
-                  <p className="mono-copy">{item.excerpt}</p>
-                  <a className="micro-action" href={`/prompts/${item.id}`}>
-                    OPEN RELATED ENTRY
-                  </a>
-                </div>
-              ))}
-            </div>
+            <div className="eyebrow">{dict.detail.relatedEyebrow}</div>
+            {relatedPrompts.length === 0 ? (
+              <p className="mono-copy" style={{ marginTop: 12 }}>
+                {dict.detail.relatedEmpty}
+              </p>
+            ) : (
+              <div className="library-grid">
+                {relatedPrompts.map((item) => (
+                  <div className="library-card" key={item.id}>
+                    <div className="card-kicker">{item.modelLabel}</div>
+                    <div className="card-value">{item.title}</div>
+                    <p className="mono-copy">{item.excerpt}</p>
+                    <a className="micro-action" href={`/prompts/${item.id}`}>
+                      {dict.detail.openRelated}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

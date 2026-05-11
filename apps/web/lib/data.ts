@@ -81,12 +81,12 @@ export type PromptSearchQuery = {
   limit?: number;
 };
 
-export const SEARCH_SORT_OPTIONS: Array<{ value: SearchSort; label: string }> = [
-  { value: "latest", label: "LATEST" },
-  { value: "trending_weekly", label: "TRENDING / WEEK" },
-  { value: "trending_monthly", label: "TRENDING / MONTH" },
-  { value: "most_copied", label: "MOST COPIED" },
-  { value: "most_collected", label: "MOST COLLECTED" }
+export const SEARCH_SORT_VALUES: SearchSort[] = [
+  "latest",
+  "trending_weekly",
+  "trending_monthly",
+  "most_copied",
+  "most_collected"
 ];
 
 function ensureFirstItem<T>(list: T[], listName: string): T {

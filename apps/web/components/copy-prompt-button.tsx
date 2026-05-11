@@ -2,14 +2,17 @@
 
 import { useEffect, useState, useTransition } from "react";
 
+import type { Dictionary } from "@/lib/i18n";
+
 type CopyPromptButtonProps = {
   promptId: string;
   promptText: string;
+  labels: Dictionary["common"]["actions"];
 };
 
 type CopyState = "idle" | "success" | "error";
 
-export function CopyPromptButton({ promptId, promptText }: CopyPromptButtonProps) {
+export function CopyPromptButton({ promptId, promptText, labels }: CopyPromptButtonProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const [isPending, startTransition] = useTransition();
 
@@ -29,15 +32,15 @@ export function CopyPromptButton({ promptId, promptText }: CopyPromptButtonProps
 
   function getLabel() {
     if (isPending) {
-      return "COPYING...";
+      return labels.copying;
     }
     if (copyState === "success") {
-      return "COPIED";
+      return labels.copied;
     }
     if (copyState === "error") {
-      return "COPY FAILED";
+      return labels.copyFailed;
     }
-    return "COPY PROMPT";
+    return labels.copyPrompt;
   }
 
   function handleCopy() {

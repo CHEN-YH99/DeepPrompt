@@ -44,5 +44,5 @@ export async function POST(request: NextRequest, context: CopyRouteContext) {
 
   const fallbackUrl = new URL(`/prompts/${id}`, request.url);
   const referer = request.headers.get("referer");
-  return NextResponse.redirect(referer ?? fallbackUrl);
+  return NextResponse.redirect(referer ?? fallbackUrl, { status: 303 });
 }

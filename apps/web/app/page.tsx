@@ -5,11 +5,12 @@ import {
   featuredPrompt,
   fetchModels,
   fetchPromptRecords,
-  searchHotTerms,
-  systemMilestones
+  searchHotTerms
 } from "@/lib/data";
+import { getDictionary } from "@/lib/i18n";
 
 export default async function HomePage() {
+  const dict = getDictionary();
   const [modelRecords, promptRecords] = await Promise.all([
     fetchModels(),
     fetchPromptRecords()
@@ -21,41 +22,36 @@ export default async function HomePage() {
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / HERO-01">
-            <div className="eyebrow">[ TODAY&apos;S FEATURED PROMPT ]</div>
+            <div className="eyebrow">{dict.home.heroKicker}</div>
             <h1 className="headline headline-tight">
-              TACTICAL
+              {dict.home.heroTitleLine1}
               <br />
-              PROMPT
+              {dict.home.heroTitleLine2}
               <br />
-              ARCHIVE
+              {dict.home.heroTitleLine3}
             </h1>
-            <p className="lede">
-              DeepPrompt 是一个面向 AI 生图创作者的提示词资料库与社区平台。当前前端按
-              PRD / TDD 的 MVP 链路重建，优先覆盖浏览、搜索、发布、详情与个人管理核心路径。
-            </p>
-            <div className="ascii-rule">
-              {"/// MODEL-AGNOSTIC / RIGID GRID / SEARCHABLE DOSSIER / COPY-READY / REVIEW-READY ///"}
-            </div>
+            <p className="lede">{dict.home.heroLede}</p>
+            <div className="ascii-rule">{dict.home.heroAsciiRule}</div>
             <div className="action-row">
               <a className="action" href="/publish">
-                OPEN PUBLISH FLOW
+                {dict.home.heroPrimary}
               </a>
               <a className="ghost-action" href="/search">
-                SCAN HOT LIBRARY
+                {dict.home.heroSecondary}
               </a>
             </div>
             <div className="stats-grid" style={{ marginTop: 20 }}>
               <div className="stat-card">
-                <div className="stat-label">SUPPORTED MODELS</div>
+                <div className="stat-label">{dict.home.statsSupportedModels}</div>
                 <div className="stat-value">{modelRecords.length.toString().padStart(2, "0")}</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">PROMPT UNITS</div>
+                <div className="stat-label">{dict.home.statsPromptUnits}</div>
                 <div className="stat-value">{promptRecords.length || "500+"}</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">TARGET LCP</div>
-                <div className="stat-value">&lt;2S</div>
+                <div className="stat-label">{dict.home.statsTargetLcp}</div>
+                <div className="stat-value">{dict.home.statsTargetLcpValue}</div>
               </div>
             </div>
           </div>
@@ -63,15 +59,15 @@ export default async function HomePage() {
             <div className="crosshair" />
             <div className="hero-meta">
               <div className="cell">
-                <div className="mini-label">FEATURE ID</div>
+                <div className="mini-label">{dict.home.visualFeatureId}</div>
                 <div className="card-value">{featured.id}</div>
               </div>
               <div className="cell">
-                <div className="mini-label">PRIMARY MODEL</div>
+                <div className="mini-label">{dict.home.visualPrimaryModel}</div>
                 <div className="card-value">{featured.modelLabel}</div>
               </div>
               <div className="cell">
-                <div className="mini-label">AUTHOR UNIT</div>
+                <div className="mini-label">{dict.home.visualAuthorUnit}</div>
                 <div className="card-value">{featured.author}</div>
               </div>
             </div>
@@ -81,12 +77,12 @@ export default async function HomePage() {
         <section className="page-grid" style={{ marginTop: 14 }}>
           <div className="section" data-unit="UNIT / OPS-04">
             <SectionHeader
-              eyebrow="[ PROJECT STATUS / DEVELOPMENT GATES ]"
-              title="DEVELOPMENT CYCLE / GATE CHECK"
-              copy="基于需求文档、技术实现文档和开发周期闯关文档，当前应优先保证工程源码可复现、MVP 链路可运行、Model Registry 可驱动页面。"
+              eyebrow={dict.home.gatesEyebrow}
+              title={dict.home.gatesTitle}
+              copy={dict.home.gatesCopy}
             />
             <div className="panel-grid" style={{ marginTop: 18 }}>
-              {systemMilestones.map((item) => (
+              {dict.home.milestones.map((item) => (
                 <div className="telemetry-card" key={item.stage}>
                   <div className="card-kicker">{item.stage}</div>
                   <div className="card-value">{item.title}</div>
@@ -100,9 +96,9 @@ export default async function HomePage() {
         <section className="page-grid two-col" style={{ marginTop: 14 }}>
           <div className="section" data-unit="UNIT / LIB-02">
             <SectionHeader
-              eyebrow="[ MODEL REGISTRY / ACTIVE ]"
-              title="SUPPORTED ENGINES"
-              copy="MVP 阶段聚焦 3 大模型，页面筛选、发布表单和详情标签都围绕注册表配置驱动。"
+              eyebrow={dict.home.registryEyebrow}
+              title={dict.home.registryTitle}
+              copy={dict.home.registryCopy}
             />
             <div className="info-grid" style={{ marginTop: 18 }}>
               {modelRecords.map((model) => (
@@ -110,8 +106,9 @@ export default async function HomePage() {
                   <div className="card-kicker">{model.vendor}</div>
                   <div className="card-value">{model.displayName}</div>
                   <p className="mono-copy">
-                    FORMAT / {model.format} / NEGATIVE /{" "}
-                    {model.supportsNegative ? "ON" : "OFF"}
+                    {dict.home.registryFormat} / {model.format.toUpperCase()} ·{" "}
+                    {dict.home.registryNegative} /{" "}
+                    {model.supportsNegative ? dict.home.negativeOn : dict.home.negativeOff}
                   </p>
                   <div className="tag-row">
                     {model.featureTags.map((tag) => (
@@ -126,16 +123,18 @@ export default async function HomePage() {
           </div>
           <div className="section" data-unit="UNIT / RAD-09">
             <SectionHeader
-              eyebrow="[ HOT SEARCH / TERMINAL FEED ]"
-              title="TREND SCAN"
-              copy="搜索页目标支持全文关键词、模型筛选、风格、色调、用途和排序方式。"
+              eyebrow={dict.home.hotEyebrow}
+              title={dict.home.hotTitle}
+              copy={dict.home.hotCopy}
             />
             <div className="card-list" style={{ marginTop: 18 }}>
               {searchHotTerms.map((term, index) => (
                 <div className="telemetry-card" key={term}>
                   <div className="split-row" style={{ justifyContent: "space-between" }}>
-                    <span className="card-kicker">RANK / 0{index + 1}</span>
-                    <span className="card-kicker">QUERY LOAD / HIGH</span>
+                    <span className="card-kicker">
+                      {dict.home.hotRank} {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="card-kicker">{dict.home.hotLoad}</span>
                   </div>
                   <div className="card-value">{term}</div>
                 </div>
@@ -147,9 +146,9 @@ export default async function HomePage() {
         <section className="page-grid" style={{ marginTop: 14 }}>
           <div className="section" data-unit="UNIT / FEED-11">
             <SectionHeader
-              eyebrow="[ PROMPT LIBRARY / LATEST + TRENDING ]"
-              title="PROMPT DOSSIER WALL"
-              copy="首页采用 API 优先数据源，后端不可用时回退静态内容，保证开发体验不断档。"
+              eyebrow={dict.home.feedEyebrow}
+              title={dict.home.feedTitle}
+              copy={dict.home.feedCopy}
             />
             <div className="prompt-grid" style={{ marginTop: 18 }}>
               {promptRecords.map((prompt) => (

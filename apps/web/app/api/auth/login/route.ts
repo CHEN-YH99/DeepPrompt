@@ -20,18 +20,22 @@ export async function POST(request: NextRequest) {
       cache: "no-store"
     });
   } catch {
-    return NextResponse.redirect(new URL("/login?error=api_unreachable", request.url));
+    return NextResponse.redirect(new URL("/login?error=api_unreachable", request.url), {
+      status: 303
+    });
   }
 
   if (!response.ok) {
-    return NextResponse.redirect(new URL("/login?error=invalid_credentials", request.url));
+    return NextResponse.redirect(new URL("/login?error=invalid_credentials", request.url), {
+      status: 303
+    });
   }
 
   const json = (await response.json()) as {
     data?: { access_token?: string };
   };
   const accessToken = json.data?.access_token;
-  const result = NextResponse.redirect(new URL("/me/prompts", request.url));
+  const result = NextResponse.redirect(new URL("/me/prompts", request.url), { status: 303 });
   if (accessToken) {
     result.cookies.set("access_token", accessToken, {
       httpOnly: true,

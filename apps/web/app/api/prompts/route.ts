@@ -17,24 +17,21 @@ function splitTags(value: FormDataEntryValue | null) {
     .slice(0, 5);
 }
 
-function parseParams(value: FormDataEntryValue | null) {
-  return String(value ?? "")
-    .split(/\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .reduce<Record<string, string>>((params, line) => {
-      const [rawKey, ...rest] = line.split("=");
-      const key = rawKey?.trim();
-      const paramValue = rest.join("=").trim();
-      if (key && paramValue) {
-        params[key] = paramValue;
-      }
-      return params;
-    }, {});
+function collectParamsJson(formData: FormData) {
+  const params: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("param__")) continue;
+    const paramKey = key.slice("param__".length).trim();
+    const stringValue = String(value).trim();
+    if (paramKey && stringValue) {
+      params[paramKey] = stringValue;
+    }
+  }
+  return params;
 }
 
 function redirectWithError(request: NextRequest, error: string) {
-  return NextResponse.redirect(new URL(`/publish?error=${error}`, request.url));
+  return NextResponse.redirect(new URL(`/publish?error=${error}`, request.url), { status: 303 });
 }
 
 async function persistUploadedFile(file: File) {
@@ -67,7 +64,9 @@ async function persistUploadedFile(file: File) {
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   if (!accessToken) {
-    return NextResponse.redirect(new URL("/login?error=login_required", request.url));
+    return NextResponse.redirect(new URL("/login?error=login_required", request.url), {
+      status: 303
+    });
   }
 
   const formData = await request.formData();
@@ -115,7 +114,7 @@ export async function POST(request: NextRequest) {
     usage_tags: splitTags(formData.get("usage_tags")),
     color_tags: splitTags(formData.get("color_tags")),
     usage_note: String(formData.get("usage_note") ?? "").trim() || undefined,
-    params_json: parseParams(formData.get("params_json")),
+    params_json: collectParamsJson(formData),
     images,
     status
   };
@@ -145,8 +144,11 @@ export async function POST(request: NextRequest) {
   const createdPromptId = json.data?.id;
 
   if (createdPromptId && status !== "draft") {
-    return NextResponse.redirect(new URL(`/prompts/${createdPromptId}?created=1`, request.url));
+    return NextResponse.redirect(
+      new URL(`/prompts/${createdPromptId}?created=1`, request.url),
+      { status: 303 }
+    );
   }
 
-  return NextResponse.redirect(new URL("/me/prompts?created=1", request.url));
+  return NextResponse.redirect(new URL("/me/prompts?created=1", request.url), { status: 303 });
 }

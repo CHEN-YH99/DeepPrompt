@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import { fetchCurrentUser, fetchMyPromptRecords } from "@/lib/data";
+import { applyVars, getDictionary } from "@/lib/i18n";
 
 type MyPromptsPageProps = {
   searchParams?: Promise<{
@@ -10,6 +11,7 @@ type MyPromptsPageProps = {
 };
 
 export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps) {
+  const dict = getDictionary();
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
   const [currentUser, promptRecords] = await Promise.all([
@@ -18,68 +20,72 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
   ]);
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const createdMessage =
-    resolvedSearchParams?.created === "1"
-      ? "Prompt 已提交审核，你可以在这里看到它。"
-      : "";
+    resolvedSearchParams?.created === "1" ? dict.myPrompts.createdNotice : "";
   const totalCopies = promptRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
   const totalCollects = promptRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
+
+  const statusLabelMap: Record<string, string> = {
+    approved: dict.common.status.approved,
+    pending: dict.common.status.pending,
+    draft: dict.common.status.draft,
+    rejected: dict.common.status.rejected,
+    archived: dict.common.status.archived
+  };
 
   return (
     <Shell activePath="/me/prompts">
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / USER-01">
-            <div className="eyebrow">[ CREATOR DESK / PERSONAL CONSOLE ]</div>
+            <div className="eyebrow">{dict.myPrompts.heroKicker}</div>
             <h1 className="headline">
-              MY
+              {dict.myPrompts.heroTitleLine1}
               <br />
-              PROMPT
+              {dict.myPrompts.heroTitleLine2}
               <br />
-              DESK
+              {dict.myPrompts.heroTitleLine3}
             </h1>
-            <p className="lede">
-              个人中心 MVP 已接入当前登录用户数据，覆盖我发布的 Prompt、草稿 / 待审核 / 已发布状态和基础数据看板。
-            </p>
+            <p className="lede">{dict.myPrompts.heroLede}</p>
             {createdMessage ? <p className="lede">{createdMessage}</p> : null}
             {!currentUser ? (
               <div className="action-row" style={{ marginTop: 18 }}>
                 <a className="action" href="/login">
-                  LOGIN REQUIRED
+                  {dict.common.actions.loginRequired}
                 </a>
               </div>
             ) : null}
             <div className="metric-board" style={{ marginTop: 18 }}>
               <div>
-                <div className="mini-label">TOTAL PROMPTS</div>
+                <div className="mini-label">{dict.myPrompts.totalPrompts}</div>
                 <div className="card-value">{promptRecords.length}</div>
               </div>
               <div>
-                <div className="mini-label">TOTAL COPIES</div>
+                <div className="mini-label">{dict.myPrompts.totalCopies}</div>
                 <div className="card-value">{totalCopies}</div>
               </div>
               <div>
-                <div className="mini-label">TOTAL COLLECTS</div>
+                <div className="mini-label">{dict.myPrompts.totalCollects}</div>
                 <div className="card-value">{totalCollects}</div>
               </div>
               <div>
-                <div className="mini-label">POINTS</div>
+                <div className="mini-label">{dict.myPrompts.points}</div>
                 <div className="card-value">{currentUser?.points ?? 0}</div>
               </div>
             </div>
           </div>
           <div className="section" data-unit="UNIT / USER-02">
             <SectionHeader
-              eyebrow="[ FILTER TABS ]"
-              title="CONTENT STATES"
-              copy="后续可扩展为 Tabs 与收藏夹管理。当前先展示后端状态机返回值。"
+              eyebrow={dict.myPrompts.tabsEyebrow}
+              title={dict.myPrompts.tabsTitle}
+              copy={dict.myPrompts.tabsCopy}
             />
             <div className="tag-row" style={{ marginTop: 18 }}>
               <span className="tab-chip" data-active="true">
-                ALL
+                {dict.myPrompts.tabAll}
               </span>
-              <span className="tab-chip">APPROVED</span>
-              <span className="tab-chip">PENDING</span>
-              <span className="tab-chip">DRAFT</span>
+              <span className="tab-chip">{dict.myPrompts.tabApproved}</span>
+              <span className="tab-chip">{dict.myPrompts.tabPending}</span>
+              <span className="tab-chip">{dict.myPrompts.tabDraft}</span>
             </div>
           </div>
         </section>
@@ -87,34 +93,41 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
         <section className="page-grid" style={{ marginTop: 14 }}>
           <div className="section table-panel" data-unit="UNIT / USER-03">
             <SectionHeader
-              eyebrow="[ PUBLISHED + DRAFTED ENTRIES ]"
-              title="PROMPT LOG TABLE"
-              copy="这里已经接入后端状态机，发布后 pending / draft / approved 会同步显示。"
+              eyebrow={dict.myPrompts.listEyebrow}
+              title={dict.myPrompts.listTitle}
+              copy={dict.myPrompts.listCopy}
             />
             <div className="list-table" style={{ marginTop: 18 }}>
               <div className="table-row head">
-                <span>ENTRY NAME</span>
-                <span>STATE</span>
-                <span>MODEL</span>
-                <span>METRICS</span>
+                <span>{dict.myPrompts.colName}</span>
+                <span>{dict.myPrompts.colState}</span>
+                <span>{dict.myPrompts.colModel}</span>
+                <span>{dict.myPrompts.colMetrics}</span>
               </div>
               {promptRecords.length > 0 ? (
                 promptRecords.map((row) => (
                   <div className="table-row" key={row.id}>
                     <span>{row.title}</span>
-                    <span>{row.status.toUpperCase()}</span>
+                    <span>{statusLabelMap[row.status] ?? row.status}</span>
                     <span>{row.modelLabel}</span>
                     <span>
-                      {row.copies} COPIES / {row.likes} LIKES
+                      {applyVars(dict.myPrompts.rowMetricsCopiesLikes, {
+                        copies: row.copies,
+                        likes: row.likes
+                      })}
                     </span>
                   </div>
                 ))
               ) : (
                 <div className="table-row">
-                  <span>NO PROMPT YET</span>
-                  <span>{currentUser ? "EMPTY" : "LOCKED"}</span>
+                  <span>{dict.myPrompts.emptyName}</span>
+                  <span>
+                    {currentUser ? dict.myPrompts.emptyStateLogged : dict.myPrompts.emptyStateLocked}
+                  </span>
                   <span>--</span>
-                  <span>{currentUser ? "PUBLISH FIRST PROMPT" : "LOGIN FIRST"}</span>
+                  <span>
+                    {currentUser ? dict.myPrompts.emptyTip : dict.common.actions.loginFirst}
+                  </span>
                 </div>
               )}
             </div>
