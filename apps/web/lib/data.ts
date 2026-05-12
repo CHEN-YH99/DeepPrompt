@@ -1,12 +1,15 @@
 import type {
   ApiSuccess,
   AuthUser,
+  CollectionEntry,
   ModelDetail,
   ModelParamField,
   ModelSummary,
+  ModerationAction,
   PromptDetail,
   PromptListItem,
   PromptListMeta,
+  PromptStatus,
   SearchSort
 } from "@deepprompt/types";
 
@@ -24,7 +27,7 @@ export type PromptRecord = {
   likes: number;
   collects: number;
   copies: number;
-  status: "approved" | "pending" | "draft";
+  status: PromptStatus;
   createdAt: string;
   cover: string;
   excerpt: string;
@@ -37,6 +40,8 @@ export type PromptRecord = {
     url: string;
     thumbUrl?: string | null;
   }>;
+  viewerLiked: boolean;
+  viewerCollected: boolean;
 };
 
 export type ModelRecord = {
@@ -127,7 +132,7 @@ export const models: ModelRecord[] = [
   }
 ];
 
-const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord">> = [
+const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord" | "viewerLiked" | "viewerCollected">> = [
   {
     id: "dp-001",
     title: "TACTICAL PORTRAIT / NEON RAIN",
@@ -268,7 +273,9 @@ export const prompts: PromptRecord[] = PROMPT_TEMPLATES.map((entry) => ({
       acc[keyPart] = rest.length > 0 ? rest.join(" ") : "";
     }
     return acc;
-  }, {})
+  }, {}),
+  viewerLiked: false,
+  viewerCollected: false
 }));
 
 export const featuredPrompt = ensureFirstItem(prompts, "prompts");
@@ -369,7 +376,11 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
     collects: prompt.collect_count,
     copies: prompt.copy_count,
     status:
-      prompt.status === "approved" || prompt.status === "pending" || prompt.status === "draft"
+      prompt.status === "approved" ||
+      prompt.status === "pending" ||
+      prompt.status === "draft" ||
+      prompt.status === "rejected" ||
+      prompt.status === "archived"
         ? prompt.status
         : "pending",
     createdAt: prompt.created_at,
@@ -401,7 +412,9 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
                 "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
               thumbUrl: prompt.cover_url
             }
-          ]
+          ],
+    viewerLiked: "viewer_liked" in prompt ? Boolean(prompt.viewer_liked) : false,
+    viewerCollected: "viewer_collected" in prompt ? Boolean(prompt.viewer_collected) : false
   };
 }
 
@@ -563,13 +576,14 @@ export async function fetchRelatedPromptRecords(id: string): Promise<PromptRecor
   }
 }
 
-export async function fetchMyPromptRecords(accessToken?: string) {
+export async function fetchMyPromptRecords(accessToken?: string, status?: PromptStatus | null) {
   if (!accessToken) {
     return [];
   }
 
   try {
-    const response = await fetch(`${apiBaseUrl}/v1/prompts/me`, {
+    const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+    const response = await fetch(`${apiBaseUrl}/v1/prompts/me${suffix}`, {
       headers: {
         authorization: `Bearer ${accessToken}`
       },
@@ -619,5 +633,118 @@ export async function fetchCurrentUser(accessToken?: string) {
     return readApiData<AuthUser>(response);
   } catch {
     return null;
+  }
+}
+
+export type CollectedPromptRecord = PromptRecord & { collectedAt: string };
+
+export async function fetchMyCollections(accessToken?: string): Promise<CollectedPromptRecord[]> {
+  if (!accessToken) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/me/collections`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await readApiData<CollectionEntry[]>(response);
+    return data.map((entry) => ({
+      ...promptListItemToPromptRecord(entry),
+      collectedAt: entry.collected_at
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export type ModerationSummary = Record<PromptStatus, number>;
+
+export type ModerationSnapshot = {
+  items: PromptRecord[];
+  status: PromptStatus;
+  summary: ModerationSummary;
+};
+
+const EMPTY_SUMMARY: ModerationSummary = {
+  draft: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  archived: 0
+};
+
+export async function fetchModerationQueue(
+  status: PromptStatus,
+  accessToken?: string
+): Promise<ModerationSnapshot | null> {
+  if (!accessToken) {
+    return null;
+  }
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/v1/admin/moderation?status=${encodeURIComponent(status)}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`
+        },
+        cache: "no-store"
+      }
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const json = await readApiResponse<PromptListItem[], { status: PromptStatus; summary: ModerationSummary }>(
+      response
+    );
+    return {
+      items: json.data.map(promptListItemToPromptRecord),
+      status: json.meta?.status ?? status,
+      summary: json.meta?.summary ?? EMPTY_SUMMARY
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function toggleInteraction(
+  promptId: string,
+  type: "like" | "collect",
+  next: boolean
+): Promise<{ ok: boolean; total: number }> {
+  try {
+    const response = await fetch(`/api/me/interactions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ promptId, type, action: next ? "add" : "remove" })
+    });
+    if (!response.ok) {
+      return { ok: false, total: 0 };
+    }
+    const json = (await response.json()) as { total?: number; ok?: boolean };
+    return { ok: Boolean(json.ok), total: Number(json.total ?? 0) };
+  } catch {
+    return { ok: false, total: 0 };
+  }
+}
+
+export async function submitModerationAction(
+  promptId: string,
+  action: ModerationAction
+): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/admin/moderation/${promptId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }

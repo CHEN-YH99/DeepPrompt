@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CopyPromptButton } from "@/components/copy-prompt-button";
+import { InteractionBar } from "@/components/interaction-bar";
 import { PromptGallery } from "@/components/prompt-gallery";
 import { Shell } from "@/components/shell";
 import {
+  fetchCurrentUser,
   fetchModels,
   fetchPromptRecordById,
   fetchRelatedPromptRecords
@@ -31,7 +32,10 @@ export default async function PromptDetailPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
-  const prompt = await fetchPromptRecordById(id, accessToken);
+  const [prompt, currentUser] = await Promise.all([
+    fetchPromptRecordById(id, accessToken),
+    fetchCurrentUser(accessToken)
+  ]);
 
   if (!prompt) {
     notFound();
@@ -46,7 +50,9 @@ export default async function PromptDetailPage({
   const statusLabelMap: Record<typeof prompt.status, string> = {
     approved: dict.common.status.approved,
     pending: dict.common.status.pending,
-    draft: dict.common.status.draft
+    draft: dict.common.status.draft,
+    rejected: dict.common.status.rejected,
+    archived: dict.common.status.archived
   };
 
   const createdMessage = resolvedSearchParams?.created === "1" ? dict.detail.createdNotice : "";
@@ -60,12 +66,19 @@ export default async function PromptDetailPage({
             <h1 className="headline">{prompt.title}</h1>
             <p className="lede">{prompt.excerpt}</p>
             {createdMessage ? <p className="lede">{createdMessage}</p> : null}
-            <div className="action-row">
-              <CopyPromptButton
-                labels={dict.common.actions}
-                promptId={prompt.id}
-                promptText={prompt.promptText}
-              />
+            <InteractionBar
+              copyLabels={dict.common.actions}
+              initialCollectCount={prompt.collects}
+              initialCollected={prompt.viewerCollected}
+              initialLikeCount={prompt.likes}
+              initialLiked={prompt.viewerLiked}
+              isLoggedIn={Boolean(currentUser)}
+              labels={dict.interactions}
+              loginHref="/login?error=login_required"
+              promptId={prompt.id}
+              promptText={prompt.promptText}
+            />
+            <div className="action-row" style={{ marginTop: 10 }}>
               {promptModels[0] ? (
                 <Link className="ghost-action" href={`/models/${promptModels[0].id}`}>
                   {dict.detail.actionOpenModelZone}
@@ -76,7 +89,7 @@ export default async function PromptDetailPage({
                 </button>
               )}
               <button className="ghost-action" type="button">
-                {dict.detail.actionReport}
+                {dict.interactions.reportAction}
               </button>
             </div>
           </div>

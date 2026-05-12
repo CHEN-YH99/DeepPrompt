@@ -147,6 +147,23 @@ export type PromptDetail = PromptListItem & {
   params_json: Record<string, unknown>;
   usage_note: string | null;
   images: PromptImageRecord[];
+  viewer_liked?: boolean;
+  viewer_collected?: boolean;
+};
+
+export type InteractionState = {
+  prompt_id: string;
+  like_count: number;
+  collect_count: number;
+  copy_count: number;
+  viewer_liked: boolean;
+  viewer_collected: boolean;
+};
+
+export type ModerationAction = "approve" | "reject" | "archive" | "repend";
+
+export type CollectionEntry = PromptListItem & {
+  collected_at: string;
 };
 
 export type UploadedImageAsset = {

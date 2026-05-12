@@ -333,6 +333,21 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+function requireRole(...roles: AuthUser["role"][]) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    await new Promise<void>((resolve) => requireAuth(req, res, () => resolve()));
+    const user = (req as AuthedRequest).user;
+    if (!user) {
+      return;
+    }
+    if (!roles.includes(user.role)) {
+      fail(res, 403, "FORBIDDEN", "Insufficient role");
+      return;
+    }
+    next();
+  };
+}
+
 async function getOptionalUser(req: Request) {
   const token = getBearerToken(req);
   if (!token) {
@@ -921,6 +936,15 @@ app.get("/v1/prompts", async (req, res) => {
 
 app.get("/v1/prompts/me", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).user;
+  const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
+  const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
+  const params: unknown[] = [user.id];
+  const conditions = ["p.author_id = $1"];
+  if (allowedStatuses.includes(statusFilter as PromptStatus)) {
+    params.push(statusFilter);
+    conditions.push(`p.status = $${params.length}::prompt_status`);
+  }
+
   const result = await pgClient.query<PromptListRow>(
     `
     SELECT
@@ -947,11 +971,11 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
       ) AS cover_url
     FROM prompts p
     JOIN users u ON u.id = p.author_id
-    WHERE p.author_id = $1
+    WHERE ${conditions.join(" AND ")}
     ORDER BY p.created_at DESC
     LIMIT 100
     `,
-    [user.id]
+    params
   );
 
   const items = await Promise.all(result.rows.map(toPromptListItem));
@@ -965,13 +989,27 @@ app.get("/v1/prompts/:id", async (req, res) => {
     return;
   }
 
+  const viewer = await getOptionalUser(req);
+
   if (prompt.status !== "approved") {
-    const user = await getOptionalUser(req);
     const owner = await getPromptOwner(prompt.id);
-    if (!user || owner !== user.id) {
+    const isPrivileged = viewer?.role === "admin" || viewer?.role === "moderator";
+    if (!viewer || (owner !== viewer.id && !isPrivileged)) {
       fail(res, 404, "NOT_FOUND", "Prompt not found");
       return;
     }
+  }
+
+  if (viewer) {
+    const states = await pgClient.query<{ type: "like" | "collect" }>(
+      `SELECT type FROM interactions WHERE user_id = $1 AND prompt_id = $2 AND type IN ('like','collect')`,
+      [viewer.id, prompt.id]
+    );
+    prompt.viewer_liked = states.rows.some((row) => row.type === "like");
+    prompt.viewer_collected = states.rows.some((row) => row.type === "collect");
+  } else {
+    prompt.viewer_liked = false;
+    prompt.viewer_collected = false;
   }
 
   success(res, prompt);
@@ -1047,8 +1085,16 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
   const usageTags = normalizeStringList(body.usage_tags, 5);
   const colorTags = normalizeStringList(body.color_tags, 5);
   const paramsJson = normalizeParams(body.params_json);
-  const status: Extract<PromptStatus, "draft" | "approved"> =
-    body.status === "draft" ? "draft" : "approved";
+  const isPrivileged = user.role === "admin" || user.role === "moderator";
+  const requestedStatus = body.status;
+  let status: Extract<PromptStatus, "draft" | "pending" | "approved">;
+  if (requestedStatus === "draft") {
+    status = "draft";
+  } else if (requestedStatus === "approved" && isPrivileged) {
+    status = "approved";
+  } else {
+    status = "pending";
+  }
   const images = Array.isArray(body.images)
     ? body.images
         .map((image) => ({
@@ -1146,6 +1192,9 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
 });
 
 app.post("/v1/prompts/:id/copy", async (req, res) => {
+  const promptId = req.params.id;
+  const viewer = await getOptionalUser(req);
+
   const result = await pgClient.query<{ copy_count: number }>(
     `
     UPDATE prompts
@@ -1153,7 +1202,7 @@ app.post("/v1/prompts/:id/copy", async (req, res) => {
     WHERE id = $1
     RETURNING copy_count
     `,
-    [req.params.id]
+    [promptId]
   );
 
   const row = result.rows[0];
@@ -1162,9 +1211,265 @@ app.post("/v1/prompts/:id/copy", async (req, res) => {
     return;
   }
 
+  if (viewer) {
+    try {
+      await pgClient.query(
+        `INSERT INTO interactions (user_id, prompt_id, type) VALUES ($1, $2, 'copy')`,
+        [viewer.id, promptId]
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[api] failed to log copy interaction:", message);
+    }
+  }
+
   success(res, {
     copy_count: row.copy_count
   });
+});
+
+async function applyInteraction(
+  promptId: string,
+  userId: string,
+  type: "like" | "collect",
+  action: "add" | "remove"
+) {
+  const countColumn = type === "like" ? "like_count" : "collect_count";
+  if (action === "add") {
+    const result = await pgClient.query<{ count: string; total: number }>(
+      `
+      WITH ins AS (
+        INSERT INTO interactions (user_id, prompt_id, type)
+        VALUES ($1, $2, $3::interaction_type)
+        ON CONFLICT (user_id, prompt_id, type) WHERE type IN ('like','collect')
+        DO NOTHING
+        RETURNING 1
+      )
+      UPDATE prompts
+      SET ${countColumn} = ${countColumn} + (SELECT COUNT(*) FROM ins)::INT
+      WHERE id = $2
+      RETURNING ${countColumn} AS total, (SELECT COUNT(*) FROM ins)::TEXT AS count
+      `,
+      [userId, promptId, type]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  const result = await pgClient.query<{ count: string; total: number }>(
+    `
+    WITH del AS (
+      DELETE FROM interactions
+      WHERE user_id = $1 AND prompt_id = $2 AND type = $3::interaction_type
+      RETURNING 1
+    )
+    UPDATE prompts
+    SET ${countColumn} = GREATEST(0, ${countColumn} - (SELECT COUNT(*) FROM del)::INT)
+    WHERE id = $2
+    RETURNING ${countColumn} AS total, (SELECT COUNT(*) FROM del)::TEXT AS count
+    `,
+    [userId, promptId, type]
+  );
+  return result.rows[0] ?? null;
+}
+
+async function ensureApprovedPromptExists(promptId: string) {
+  const result = await pgClient.query<{ status: PromptStatus }>(
+    `SELECT status FROM prompts WHERE id = $1 LIMIT 1`,
+    [promptId]
+  );
+  return result.rows[0] ?? null;
+}
+
+app.post("/v1/prompts/:id/like", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const promptId = String(req.params.id ?? "");
+  const target = await ensureApprovedPromptExists(promptId);
+  if (!target) {
+    fail(res, 404, "NOT_FOUND", "Prompt not found");
+    return;
+  }
+  const outcome = await applyInteraction(promptId, user.id, "like", "add");
+  success(res, { like_count: outcome?.total ?? 0, changed: outcome?.count !== "0" });
+});
+
+app.delete("/v1/prompts/:id/like", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const promptId = String(req.params.id ?? "");
+  const outcome = await applyInteraction(promptId, user.id, "like", "remove");
+  success(res, { like_count: outcome?.total ?? 0, changed: outcome?.count !== "0" });
+});
+
+app.post("/v1/prompts/:id/collect", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const promptId = String(req.params.id ?? "");
+  const target = await ensureApprovedPromptExists(promptId);
+  if (!target) {
+    fail(res, 404, "NOT_FOUND", "Prompt not found");
+    return;
+  }
+  const outcome = await applyInteraction(promptId, user.id, "collect", "add");
+  success(res, { collect_count: outcome?.total ?? 0, changed: outcome?.count !== "0" });
+});
+
+app.delete("/v1/prompts/:id/collect", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const promptId = String(req.params.id ?? "");
+  const outcome = await applyInteraction(promptId, user.id, "collect", "remove");
+  success(res, { collect_count: outcome?.total ?? 0, changed: outcome?.count !== "0" });
+});
+
+const MODERATION_TRANSITIONS: Record<string, PromptStatus> = {
+  approve: "approved",
+  reject: "rejected",
+  archive: "archived",
+  repend: "pending"
+};
+
+app.post(
+  "/v1/prompts/:id/moderate",
+  requireRole("admin", "moderator"),
+  async (req, res) => {
+    const action = String((req.body as { action?: string })?.action ?? "").toLowerCase();
+    const nextStatus = MODERATION_TRANSITIONS[action];
+    if (!nextStatus) {
+      fail(res, 400, "BAD_REQUEST", "Unknown moderation action");
+      return;
+    }
+
+    const promptId = String(req.params.id ?? "");
+    const result = await pgClient.query<{ status: PromptStatus }>(
+      `
+      UPDATE prompts
+      SET status = $2::prompt_status, updated_at = NOW()
+      WHERE id = $1
+      RETURNING status
+      `,
+      [promptId, nextStatus]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      fail(res, 404, "NOT_FOUND", "Prompt not found");
+      return;
+    }
+
+    if (redisClient) {
+      try {
+        await redisClient.publish(
+          "moderation:events",
+          JSON.stringify({ promptId, status: nextStatus, ts: Date.now() })
+        );
+      } catch (error) {
+        console.warn(
+          "[api] moderation event publish failed:",
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    }
+
+    success(res, { id: promptId, status: row.status });
+  }
+);
+
+app.get("/v1/admin/moderation", requireRole("admin", "moderator"), async (req, res) => {
+  const statusFilter = String(req.query.status ?? "pending").trim().toLowerCase();
+  const allowed: PromptStatus[] = ["pending", "approved", "rejected", "archived"];
+  const target = (allowed.includes(statusFilter as PromptStatus) ? statusFilter : "pending") as PromptStatus;
+
+  const list = await pgClient.query<PromptListRow>(
+    `
+    SELECT
+      p.id,
+      p.title,
+      LEFT(p.prompt_text, 180) AS excerpt,
+      p.model_ids,
+      array_to_string(p.model_ids, ' / ') AS model_label,
+      p.style_tags,
+      p.usage_tags,
+      p.color_tags,
+      u.nickname AS author,
+      p.like_count,
+      p.collect_count,
+      p.copy_count,
+      p.created_at,
+      p.status,
+      (
+        SELECT pi.url
+        FROM prompt_images pi
+        WHERE pi.prompt_id = p.id
+        ORDER BY pi.sort_order ASC
+        LIMIT 1
+      ) AS cover_url
+    FROM prompts p
+    JOIN users u ON u.id = p.author_id
+    WHERE p.status = $1::prompt_status
+    ORDER BY p.created_at ASC
+    LIMIT 50
+    `,
+    [target]
+  );
+
+  const counts = await pgClient.query<{ status: PromptStatus; count: string }>(
+    `SELECT status, COUNT(*)::TEXT AS count FROM prompts GROUP BY status`
+  );
+  const summary: Record<PromptStatus, number> = {
+    draft: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    archived: 0
+  };
+  for (const row of counts.rows) {
+    summary[row.status] = Number(row.count);
+  }
+
+  const items = await Promise.all(list.rows.map(toPromptListItem));
+  success(res, items, { status: target, summary } as unknown as Record<string, unknown>);
+});
+
+app.get("/v1/me/collections", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const result = await pgClient.query<PromptListRow & { collected_at: Date }>(
+    `
+    SELECT
+      p.id,
+      p.title,
+      LEFT(p.prompt_text, 180) AS excerpt,
+      p.model_ids,
+      array_to_string(p.model_ids, ' / ') AS model_label,
+      p.style_tags,
+      p.usage_tags,
+      p.color_tags,
+      u.nickname AS author,
+      p.like_count,
+      p.collect_count,
+      p.copy_count,
+      p.created_at,
+      p.status,
+      i.created_at AS collected_at,
+      (
+        SELECT pi.url
+        FROM prompt_images pi
+        WHERE pi.prompt_id = p.id
+        ORDER BY pi.sort_order ASC
+        LIMIT 1
+      ) AS cover_url
+    FROM interactions i
+    JOIN prompts p ON p.id = i.prompt_id
+    JOIN users u ON u.id = p.author_id
+    WHERE i.user_id = $1 AND i.type = 'collect'
+    ORDER BY i.created_at DESC
+    LIMIT 100
+    `,
+    [user.id]
+  );
+
+  const items = await Promise.all(
+    result.rows.map(async (row) => {
+      const base = await toPromptListItem(row);
+      return { ...base, collected_at: row.collected_at.toISOString() };
+    })
+  );
+  success(res, items);
 });
 
 app.get("/v1/auth/oauth/:provider", (req, res) => {

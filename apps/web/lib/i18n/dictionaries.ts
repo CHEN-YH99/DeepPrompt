@@ -228,6 +228,7 @@ export type Dictionary = {
     heroTitleLine3: string;
     heroLede: string;
     createdNotice: string;
+    submittedForReviewNotice: string;
     totalPrompts: string;
     totalCopies: string;
     totalCollects: string;
@@ -239,9 +240,12 @@ export type Dictionary = {
     tabApproved: string;
     tabPending: string;
     tabDraft: string;
+    tabRejected: string;
+    tabArchived: string;
     listEyebrow: string;
     listTitle: string;
     listCopy: string;
+    collectionsLink: string;
     colName: string;
     colState: string;
     colModel: string;
@@ -251,6 +255,77 @@ export type Dictionary = {
     emptyStateLogged: string;
     emptyStateLocked: string;
     emptyTip: string;
+  };
+  interactions: {
+    likeAction: string;
+    likedAction: string;
+    likePending: string;
+    collectAction: string;
+    collectedAction: string;
+    collectPending: string;
+    copyAction: string;
+    copyPending: string;
+    copyDone: string;
+    copyFailed: string;
+    reportAction: string;
+    loginToInteract: string;
+    interactionEyebrow: string;
+    interactionStatus: string;
+    likeShort: string;
+    collectShort: string;
+    copyShort: string;
+  };
+  collections: {
+    heroKicker: string;
+    heroTitleLine1: string;
+    heroTitleLine2: string;
+    heroTitleLine3: string;
+    heroLede: string;
+    metricsEyebrow: string;
+    metricsTitle: string;
+    metricsCopy: string;
+    totalCollects: string;
+    distinctAuthors: string;
+    distinctModels: string;
+    listEyebrow: string;
+    listTitle: string;
+    listCopy: string;
+    backToMine: string;
+    emptyTitle: string;
+    emptyHint: string;
+    needLoginTitle: string;
+    needLoginHint: string;
+    collectedAtLabel: string;
+  };
+  moderation: {
+    heroKicker: string;
+    heroTitleLine1: string;
+    heroTitleLine2: string;
+    heroTitleLine3: string;
+    heroLede: string;
+    forbiddenTitle: string;
+    forbiddenLede: string;
+    metricsEyebrow: string;
+    metricsTitle: string;
+    metricsCopy: string;
+    queuePending: string;
+    queueApproved: string;
+    queueRejected: string;
+    queueArchived: string;
+    listEyebrow: string;
+    listTitle: string;
+    listCopy: string;
+    approve: string;
+    reject: string;
+    archive: string;
+    openDetail: string;
+    emptyTitle: string;
+    emptyHint: string;
+    autoFlagsLabel: string;
+    autoFlagsClean: string;
+    rowAuthor: string;
+    rowModel: string;
+    rowSubmittedAt: string;
   };
   login: {
     heroKicker: string;
@@ -554,20 +629,24 @@ const zhCN: Dictionary = {
     heroLede:
       "个人中心 MVP 已接入当前登录用户数据，覆盖我发布的提示词、草稿 / 待审核 / 已发布状态和基础数据看板。",
     createdNotice: "提示词已提交审核，你可以在这里看到它。",
+    submittedForReviewNotice: "提示词已进入待审核队列，审核通过后会自动出现在公开列表。",
     totalPrompts: "提示词总数",
     totalCopies: "累计复制",
     totalCollects: "累计收藏",
     points: "我的积分",
     tabsEyebrow: "[ 状态筛选 ]",
     tabsTitle: "内容状态",
-    tabsCopy: "后续可扩展为 Tabs 与收藏夹管理，当前先展示后端状态机返回值。",
+    tabsCopy: "点击切换状态视图，URL 同步保留过滤条件，刷新依旧有效。",
     tabAll: "全部",
     tabApproved: "已发布",
     tabPending: "待审核",
     tabDraft: "草稿",
+    tabRejected: "已驳回",
+    tabArchived: "已下架",
     listEyebrow: "[ 已发布 + 草稿 ]",
     listTitle: "提示词列表",
-    listCopy: "这里已经接入后端状态机，发布后 pending / draft / approved 会同步显示。",
+    listCopy: "已接入后端状态机，发布后 pending / draft / approved 实时同步。",
+    collectionsLink: "查看我的收藏",
     colName: "标题",
     colState: "状态",
     colModel: "模型",
@@ -577,6 +656,79 @@ const zhCN: Dictionary = {
     emptyStateLogged: "空",
     emptyStateLocked: "未登录",
     emptyTip: "先去发布第一条"
+  },
+  interactions: {
+    likeAction: "点赞",
+    likedAction: "已点赞",
+    likePending: "处理中…",
+    collectAction: "收藏",
+    collectedAction: "已收藏",
+    collectPending: "处理中…",
+    copyAction: "复制提示词",
+    copyPending: "复制中…",
+    copyDone: "已复制",
+    copyFailed: "复制失败",
+    reportAction: "举报内容",
+    loginToInteract: "登录后即可点赞、收藏",
+    interactionEyebrow: "[ 互动 · 计数闭环 ]",
+    interactionStatus: "状态会幂等更新，重复点击不会刷数。",
+    likeShort: "赞",
+    collectShort: "藏",
+    copyShort: "复制"
+  },
+  collections: {
+    heroKicker: "[ 个人收藏 · 我的口袋 ]",
+    heroTitleLine1: "我的",
+    heroTitleLine2: "收藏",
+    heroTitleLine3: "档案",
+    heroLede:
+      "收藏列表 MVP 版本：所有标记为收藏的提示词都会汇集在这里，按收藏时间倒序展示，幂等接口确保不会重复刷数。",
+    metricsEyebrow: "[ 收藏指标 ]",
+    metricsTitle: "口袋看板",
+    metricsCopy: "总收藏数、覆盖的作者数、覆盖的模型数。",
+    totalCollects: "总收藏",
+    distinctAuthors: "覆盖作者",
+    distinctModels: "覆盖模型",
+    listEyebrow: "[ 收藏档案墙 ]",
+    listTitle: "已收藏的提示词",
+    listCopy: "点击查看档案进入详情页，可一键取消收藏。",
+    backToMine: "返回我的提示词",
+    emptyTitle: "暂无收藏",
+    emptyHint: "去搜索页发现喜欢的提示词，点击收藏即可加入这里。",
+    needLoginTitle: "未登录",
+    needLoginHint: "登录后才能查看个人收藏。",
+    collectedAtLabel: "收藏于"
+  },
+  moderation: {
+    heroKicker: "[ 审核台 · 管理员入口 ]",
+    heroTitleLine1: "审核",
+    heroTitleLine2: "队列",
+    heroTitleLine3: "控制",
+    heroLede:
+      "审核台聚合所有待处理的提示词，支持通过 / 驳回 / 下架三种操作。审核动作会触发 Meilisearch 同步占位，后续接入 BullMQ 异步消费。",
+    forbiddenTitle: "无访问权限",
+    forbiddenLede: "审核台仅对 admin 或 moderator 角色开放。",
+    metricsEyebrow: "[ 队列指标 ]",
+    metricsTitle: "审核台快照",
+    metricsCopy: "按状态聚合后端 prompt_status，重点观察 pending 堆积量。",
+    queuePending: "待审核",
+    queueApproved: "已通过",
+    queueRejected: "已驳回",
+    queueArchived: "已下架",
+    listEyebrow: "[ 待处理提示词 ]",
+    listTitle: "审核队列",
+    listCopy: "默认展示待审核条目，点击即可执行决策。",
+    approve: "通过审核",
+    reject: "驳回",
+    archive: "下架",
+    openDetail: "查看档案",
+    emptyTitle: "队列已清空",
+    emptyHint: "暂无待审核提示词，社区秩序良好。",
+    autoFlagsLabel: "自动检测",
+    autoFlagsClean: "无异常标记",
+    rowAuthor: "作者",
+    rowModel: "模型",
+    rowSubmittedAt: "提交时间"
   },
   login: {
     heroKicker: "[ 身份认证 · 接入节点 ]",
@@ -885,6 +1037,8 @@ const enUS: Dictionary = {
     heroLede:
       "Personal hub is wired to the logged-in user, covering my prompts, draft / pending / approved states and a basic data board.",
     createdNotice: "Prompt submitted for review. You can find it here.",
+    submittedForReviewNotice:
+      "Prompt is queued for review. It will appear on the public list automatically once approved.",
     totalPrompts: "TOTAL PROMPTS",
     totalCopies: "TOTAL COPIES",
     totalCollects: "TOTAL COLLECTS",
@@ -892,15 +1046,18 @@ const enUS: Dictionary = {
     tabsEyebrow: "[ FILTER TABS ]",
     tabsTitle: "CONTENT STATES",
     tabsCopy:
-      "Tabs and collection management will land next. For now we expose the backend status machine.",
+      "Click a tab to filter. The current status is mirrored to the URL so a refresh keeps the view.",
     tabAll: "ALL",
     tabApproved: "APPROVED",
     tabPending: "PENDING",
     tabDraft: "DRAFT",
+    tabRejected: "REJECTED",
+    tabArchived: "ARCHIVED",
     listEyebrow: "[ PUBLISHED + DRAFTED ENTRIES ]",
     listTitle: "PROMPT LOG TABLE",
     listCopy:
       "Hooked to the backend status machine: pending / draft / approved sync as soon as you publish.",
+    collectionsLink: "VIEW MY COLLECTIONS",
     colName: "ENTRY NAME",
     colState: "STATE",
     colModel: "MODEL",
@@ -910,6 +1067,80 @@ const enUS: Dictionary = {
     emptyStateLogged: "EMPTY",
     emptyStateLocked: "LOCKED",
     emptyTip: "PUBLISH FIRST PROMPT"
+  },
+  interactions: {
+    likeAction: "LIKE",
+    likedAction: "LIKED",
+    likePending: "PROCESSING...",
+    collectAction: "COLLECT",
+    collectedAction: "COLLECTED",
+    collectPending: "PROCESSING...",
+    copyAction: "COPY PROMPT",
+    copyPending: "COPYING...",
+    copyDone: "COPIED",
+    copyFailed: "COPY FAILED",
+    reportAction: "REPORT ENTRY",
+    loginToInteract: "LOG IN TO LIKE / COLLECT",
+    interactionEyebrow: "[ INTERACTIONS / COUNTER LOOP ]",
+    interactionStatus: "Idempotent updates: repeated clicks never inflate the counts.",
+    likeShort: "LIKE",
+    collectShort: "COLLECT",
+    copyShort: "COPY"
+  },
+  collections: {
+    heroKicker: "[ PERSONAL COLLECTIONS / POCKET ]",
+    heroTitleLine1: "MY",
+    heroTitleLine2: "COLLECTION",
+    heroTitleLine3: "DOSSIER",
+    heroLede:
+      "MVP collection list: every prompt you have collected appears here, newest first. Idempotent backend keeps the counter clean.",
+    metricsEyebrow: "[ COLLECTION METRICS ]",
+    metricsTitle: "POCKET BOARD",
+    metricsCopy: "Total collects, distinct authors, distinct models.",
+    totalCollects: "TOTAL COLLECTS",
+    distinctAuthors: "AUTHORS",
+    distinctModels: "MODELS",
+    listEyebrow: "[ COLLECTION WALL ]",
+    listTitle: "COLLECTED PROMPTS",
+    listCopy: "Click a card to open its dossier; uncollect in one tap.",
+    backToMine: "BACK TO MY PROMPTS",
+    emptyTitle: "NOTHING COLLECTED",
+    emptyHint:
+      "Discover prompts on the search page; tap COLLECT to drop them here.",
+    needLoginTitle: "LOGIN REQUIRED",
+    needLoginHint: "Sign in to view your personal collection.",
+    collectedAtLabel: "COLLECTED AT"
+  },
+  moderation: {
+    heroKicker: "[ MODERATION DESK / ADMIN ACCESS ]",
+    heroTitleLine1: "REVIEW",
+    heroTitleLine2: "QUEUE",
+    heroTitleLine3: "CONTROL",
+    heroLede:
+      "The moderation desk aggregates pending prompts and supports approve / reject / archive. Actions stub the Meilisearch sync hook for future BullMQ consumers.",
+    forbiddenTitle: "NO ACCESS",
+    forbiddenLede: "The moderation desk is admin / moderator only.",
+    metricsEyebrow: "[ QUEUE METRICS ]",
+    metricsTitle: "DESK SNAPSHOT",
+    metricsCopy: "Aggregated by backend prompt_status. Watch the pending backlog.",
+    queuePending: "PENDING",
+    queueApproved: "APPROVED",
+    queueRejected: "REJECTED",
+    queueArchived: "ARCHIVED",
+    listEyebrow: "[ PENDING ENTRIES ]",
+    listTitle: "REVIEW QUEUE",
+    listCopy: "Showing pending entries by default. Tap an action to commit a decision.",
+    approve: "APPROVE",
+    reject: "REJECT",
+    archive: "ARCHIVE",
+    openDetail: "OPEN DOSSIER",
+    emptyTitle: "QUEUE CLEAR",
+    emptyHint: "No pending prompts. Community order holds.",
+    autoFlagsLabel: "AUTO CHECK",
+    autoFlagsClean: "NO FLAGS",
+    rowAuthor: "AUTHOR",
+    rowModel: "MODEL",
+    rowSubmittedAt: "SUBMITTED"
   },
   login: {
     heroKicker: "[ AUTHENTICATION / ACCESS NODE ]",

@@ -1,35 +1,56 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import { fetchCurrentUser, fetchMyPromptRecords } from "@/lib/data";
 import { applyVars, getDictionary } from "@/lib/i18n";
+import type { PromptStatus } from "@deepprompt/types";
 
 type MyPromptsPageProps = {
   searchParams?: Promise<{
     created?: string;
+    status?: string;
   }>;
 };
+
+const STATUS_TABS = ["all", "approved", "pending", "draft", "rejected", "archived"] as const;
+type TabKey = (typeof STATUS_TABS)[number];
+
+function parseTab(value: string | undefined): TabKey {
+  return (STATUS_TABS as readonly string[]).includes(value ?? "") ? (value as TabKey) : "all";
+}
 
 export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps) {
   const dict = getDictionary();
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const tab = parseTab(resolvedSearchParams?.status);
+  const statusFilter: PromptStatus | null = tab === "all" ? null : (tab as PromptStatus);
   const [currentUser, promptRecords] = await Promise.all([
     fetchCurrentUser(accessToken),
-    fetchMyPromptRecords(accessToken)
+    fetchMyPromptRecords(accessToken, statusFilter)
   ]);
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const createdMessage =
-    resolvedSearchParams?.created === "1" ? dict.myPrompts.createdNotice : "";
+    resolvedSearchParams?.created === "1" ? dict.myPrompts.submittedForReviewNotice : "";
   const totalCopies = promptRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
   const totalCollects = promptRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
 
-  const statusLabelMap: Record<string, string> = {
+  const statusLabelMap: Record<PromptStatus, string> = {
     approved: dict.common.status.approved,
     pending: dict.common.status.pending,
     draft: dict.common.status.draft,
     rejected: dict.common.status.rejected,
     archived: dict.common.status.archived
+  };
+
+  const tabLabelMap: Record<TabKey, string> = {
+    all: dict.myPrompts.tabAll,
+    approved: dict.myPrompts.tabApproved,
+    pending: dict.myPrompts.tabPending,
+    draft: dict.myPrompts.tabDraft,
+    rejected: dict.myPrompts.tabRejected,
+    archived: dict.myPrompts.tabArchived
   };
 
   return (
@@ -47,13 +68,17 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
             </h1>
             <p className="lede">{dict.myPrompts.heroLede}</p>
             {createdMessage ? <p className="lede">{createdMessage}</p> : null}
-            {!currentUser ? (
-              <div className="action-row" style={{ marginTop: 18 }}>
+            <div className="action-row" style={{ marginTop: 14 }}>
+              {!currentUser ? (
                 <a className="action" href="/login">
                   {dict.common.actions.loginRequired}
                 </a>
-              </div>
-            ) : null}
+              ) : (
+                <Link className="ghost-action" href="/me/collections">
+                  {dict.myPrompts.collectionsLink}
+                </Link>
+              )}
+            </div>
             <div className="metric-board" style={{ marginTop: 18 }}>
               <div>
                 <div className="mini-label">{dict.myPrompts.totalPrompts}</div>
@@ -80,12 +105,16 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
               copy={dict.myPrompts.tabsCopy}
             />
             <div className="tag-row" style={{ marginTop: 18 }}>
-              <span className="tab-chip" data-active="true">
-                {dict.myPrompts.tabAll}
-              </span>
-              <span className="tab-chip">{dict.myPrompts.tabApproved}</span>
-              <span className="tab-chip">{dict.myPrompts.tabPending}</span>
-              <span className="tab-chip">{dict.myPrompts.tabDraft}</span>
+              {STATUS_TABS.map((key) => (
+                <Link
+                  className="tab-chip"
+                  data-active={tab === key}
+                  href={key === "all" ? "/me/prompts" : `/me/prompts?status=${key}`}
+                  key={key}
+                >
+                  {tabLabelMap[key]}
+                </Link>
+              ))}
             </div>
           </div>
         </section>
@@ -107,7 +136,9 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
               {promptRecords.length > 0 ? (
                 promptRecords.map((row) => (
                   <div className="table-row" key={row.id}>
-                    <span>{row.title}</span>
+                    <span>
+                      <Link href={`/prompts/${row.id}`}>{row.title}</Link>
+                    </span>
                     <span>{statusLabelMap[row.status] ?? row.status}</span>
                     <span>{row.modelLabel}</span>
                     <span>
