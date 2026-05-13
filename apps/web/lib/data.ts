@@ -289,45 +289,6 @@ export const searchHotTerms = [
   "UI MATERIAL"
 ];
 
-export const systemMilestones = [
-  {
-    stage: "GATE 0",
-    title: "ENGINE REBUILD",
-    summary: "RESTORE SOURCE TREE / ESTABLISH RUNNABLE WEB WORKSPACE"
-  },
-  {
-    stage: "GATE 2",
-    title: "PROMPT CHAIN",
-    summary: "HOME / DETAIL / PUBLISH LINKED INTO ONE MVP FLOW"
-  },
-  {
-    stage: "GATE 4",
-    title: "MODERATION LOOP",
-    summary: "QUEUE / REVIEW / INTERACTION METRICS CLOSED"
-  }
-];
-
-export const myPromptRows = [
-  {
-    name: "TACTICAL PORTRAIT / NEON RAIN",
-    state: "APPROVED",
-    model: "GPT-IMAGE-2",
-    metrics: "1284 COPIES / 842 LIKES"
-  },
-  {
-    name: "MECHANICAL FOOD PACK / FIELD TEST",
-    state: "PENDING",
-    model: "BANANA / BFL FLUX",
-    metrics: "UNDER REVIEW / 12 HOURS"
-  },
-  {
-    name: "WHITE PAPER INTERFACE / STATIC CITY",
-    state: "DRAFT",
-    model: "MIDJOURNEY V6",
-    metrics: "LOCAL SAVE / NO PUBLIC DATA"
-  }
-];
-
 export function getPromptById(id: string) {
   return prompts.find((prompt) => prompt.id === id) ?? featuredPrompt;
 }

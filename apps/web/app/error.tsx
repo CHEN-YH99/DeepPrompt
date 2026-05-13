@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import Link from "next/link";
+
 import { trackError } from "@/lib/telemetry";
 
 type ErrorBoundaryProps = {
@@ -31,9 +33,9 @@ export default function GlobalErrorBoundary({ error, reset }: ErrorBoundaryProps
             <button className="action" onClick={() => reset()} type="button">
               重试当前请求
             </button>
-            <a className="ghost-action" href="/">
+            <Link className="ghost-action" href="/">
               回到首页
-            </a>
+            </Link>
           </div>
         </div>
       </section>

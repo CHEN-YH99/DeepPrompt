@@ -39,19 +39,12 @@ export function Shell({ activePath, children }: ShellProps) {
               </Link>
             ))}
           </nav>
-          <div className="status-box">
-            <div>{dict.common.statusNode}</div>
-            <div className="status-live">{dict.common.statusOnline}</div>
-            <div>{dict.common.buildGoal}</div>
-          </div>
         </header>
       </div>
       {children}
       <div className="shell">
         <footer className="footer-strip">
           <div>{dict.common.footerLine}</div>
-          <div>{dict.common.footerMode}</div>
-          <div>{dict.common.footerRev}</div>
         </footer>
       </div>
     </>

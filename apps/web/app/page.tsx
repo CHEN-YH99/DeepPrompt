@@ -33,7 +33,6 @@ export default async function HomePage() {
               {dict.home.heroTitleLine3}
             </h1>
             <p className="lede">{dict.home.heroLede}</p>
-            <div className="ascii-rule">{dict.home.heroAsciiRule}</div>
             <div className="action-row">
               <a className="action" href="/publish">
                 {dict.home.heroPrimary}
@@ -51,14 +50,9 @@ export default async function HomePage() {
                 <div className="stat-label">{dict.home.statsPromptUnits}</div>
                 <div className="stat-value">{promptRecords.length || "500+"}</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">{dict.home.statsTargetLcp}</div>
-                <div className="stat-value">{dict.home.statsTargetLcpValue}</div>
-              </div>
             </div>
           </div>
           <div className="hero-visual">
-            <div className="crosshair" />
             <div className="hero-meta">
               <div className="cell">
                 <div className="mini-label">{dict.home.visualFeatureId}</div>
@@ -72,25 +66,6 @@ export default async function HomePage() {
                 <div className="mini-label">{dict.home.visualAuthorUnit}</div>
                 <div className="card-value">{featured.author}</div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="page-grid" style={{ marginTop: 14 }}>
-          <div className="section" data-unit="UNIT / OPS-04">
-            <SectionHeader
-              eyebrow={dict.home.gatesEyebrow}
-              title={dict.home.gatesTitle}
-              copy={dict.home.gatesCopy}
-            />
-            <div className="panel-grid" style={{ marginTop: 18 }}>
-              {dict.home.milestones.map((item) => (
-                <div className="telemetry-card" key={item.stage}>
-                  <div className="card-kicker">{item.stage}</div>
-                  <div className="card-value">{item.title}</div>
-                  <p className="mono-copy">{item.summary}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
@@ -132,12 +107,9 @@ export default async function HomePage() {
             <div className="card-list" style={{ marginTop: 18 }}>
               {searchHotTerms.map((term, index) => (
                 <div className="telemetry-card" key={term}>
-                  <div className="split-row" style={{ justifyContent: "space-between" }}>
-                    <span className="card-kicker">
-                      {dict.home.hotRank} {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="card-kicker">{dict.home.hotLoad}</span>
-                  </div>
+                  <span className="card-kicker">
+                    {dict.home.hotRank} {String(index + 1).padStart(2, "0")}
+                  </span>
                   <div className="card-value">{term}</div>
                 </div>
               ))}

@@ -2,12 +2,7 @@ type CommonDict = {
   brand: string;
   brandKicker: string;
   brandSub: string;
-  statusNode: string;
-  statusOnline: string;
-  buildGoal: string;
   footerLine: string;
-  footerMode: string;
-  footerRev: string;
   actions: {
     copyPrompt: string;
     copying: string;
@@ -49,20 +44,13 @@ export type Dictionary = {
     heroTitleLine2: string;
     heroTitleLine3: string;
     heroLede: string;
-    heroAsciiRule: string;
     heroPrimary: string;
     heroSecondary: string;
     statsSupportedModels: string;
     statsPromptUnits: string;
-    statsTargetLcp: string;
-    statsTargetLcpValue: string;
     visualFeatureId: string;
     visualPrimaryModel: string;
     visualAuthorUnit: string;
-    gatesEyebrow: string;
-    gatesTitle: string;
-    gatesCopy: string;
-    milestones: Array<{ stage: string; title: string; summary: string }>;
     registryEyebrow: string;
     registryTitle: string;
     registryCopy: string;
@@ -74,7 +62,6 @@ export type Dictionary = {
     hotTitle: string;
     hotCopy: string;
     hotRank: string;
-    hotLoad: string;
     feedEyebrow: string;
     feedTitle: string;
     feedCopy: string;
@@ -370,12 +357,7 @@ const zhCN: Dictionary = {
     brand: "DeepPrompt",
     brandKicker: "[ 档案 · DeepPrompt ]",
     brandSub: "结构化网格 · 战术遥测 · 提示词智能档案",
-    statusNode: "节点 / WEB-01",
-    statusOnline: "状态 / 在线",
-    buildGoal: "目标 / MVP 第 12 周",
     footerLine: "DeepPrompt · AI 图像提示词档案库 · 模型无关的社区平台",
-    footerMode: "深色战术模式",
-    footerRev: "版本 / 2026.05.04",
     actions: {
       copyPrompt: "复制提示词",
       copying: "复制中…",
@@ -422,38 +404,13 @@ const zhCN: Dictionary = {
     heroTitleLine3: "档案库",
     heroLede:
       "DeepPrompt 是面向 AI 生图创作者的提示词档案与社区平台，当前按 PRD / TDD 的 MVP 链路落地，优先覆盖浏览、搜索、发布、详情、个人管理五条核心路径。",
-    heroAsciiRule:
-      "/// 模型无关 · 网格化版式 · 全文检索 · 一键复制 · 审核就位 ///",
     heroPrimary: "进入发布流程",
     heroSecondary: "查看热门提示词",
     statsSupportedModels: "已接入模型",
     statsPromptUnits: "提示词数量",
-    statsTargetLcp: "首屏目标 LCP",
-    statsTargetLcpValue: "<2 秒",
     visualFeatureId: "精选编号",
     visualPrimaryModel: "主要模型",
     visualAuthorUnit: "作者单元",
-    gatesEyebrow: "[ 项目进度 · 开发关卡 ]",
-    gatesTitle: "开发周期 · 关卡校验",
-    gatesCopy:
-      "基于需求文档、技术实现文档和开发周期闯关文档，当前优先保证工程源码可复现、MVP 链路可运行、模型注册表可驱动页面。",
-    milestones: [
-      {
-        stage: "关卡 0",
-        title: "工程归档修复",
-        summary: "恢复源码目录 · 让仓库重新具备开发条件"
-      },
-      {
-        stage: "关卡 2",
-        title: "主链路打通",
-        summary: "首页 · 详情 · 发布串联为一条 MVP 链路"
-      },
-      {
-        stage: "关卡 4",
-        title: "审核闭环",
-        summary: "审核队列 · 互动计数 · 状态机闭合"
-      }
-    ],
     registryEyebrow: "[ 模型注册表 · 已激活 ]",
     registryTitle: "已接入引擎",
     registryCopy:
@@ -466,7 +423,6 @@ const zhCN: Dictionary = {
     hotTitle: "趋势扫描",
     hotCopy: "搜索页支持全文关键词、模型筛选、风格、色调、用途和排序方式。",
     hotRank: "排名",
-    hotLoad: "查询负载 · 高",
     feedEyebrow: "[ 提示词库 · 最新与热门 ]",
     feedTitle: "提示词档案墙",
     feedCopy:
@@ -775,12 +731,7 @@ const enUS: Dictionary = {
     brand: "DeepPrompt",
     brandKicker: "[ ARCHIVE / DEEPPROMPT ]",
     brandSub: "SWISS GRID / TACTICAL TELEMETRY / PROMPT INTELLIGENCE NETWORK",
-    statusNode: "NODE / WEB-01",
-    statusOnline: "STATUS / ONLINE",
-    buildGoal: "BUILD GOAL / MVP WEEK 12",
     footerLine: "DEEPPROMPT / AI IMAGE PROMPT ARCHIVE / MODEL-AGNOSTIC COMMUNITY PLATFORM",
-    footerMode: "TACTICAL MODE / DARK ONLY",
-    footerRev: "REV / 2026.05.04",
     actions: {
       copyPrompt: "COPY PROMPT",
       copying: "COPYING...",
@@ -827,38 +778,13 @@ const enUS: Dictionary = {
     heroTitleLine3: "ARCHIVE",
     heroLede:
       "DeepPrompt is a curated prompt archive and community for AI image creators, currently shipping the MVP loop defined by the PRD/TDD: browse, search, publish, detail, and personal management.",
-    heroAsciiRule:
-      "/// MODEL-AGNOSTIC / RIGID GRID / SEARCHABLE DOSSIER / COPY-READY / REVIEW-READY ///",
     heroPrimary: "OPEN PUBLISH FLOW",
     heroSecondary: "SCAN HOT LIBRARY",
     statsSupportedModels: "SUPPORTED MODELS",
     statsPromptUnits: "PROMPT UNITS",
-    statsTargetLcp: "TARGET LCP",
-    statsTargetLcpValue: "<2S",
     visualFeatureId: "FEATURE ID",
     visualPrimaryModel: "PRIMARY MODEL",
     visualAuthorUnit: "AUTHOR UNIT",
-    gatesEyebrow: "[ PROJECT STATUS / DEVELOPMENT GATES ]",
-    gatesTitle: "DEVELOPMENT CYCLE / GATE CHECK",
-    gatesCopy:
-      "Based on PRD, TDD and development-cycle docs, the priority is keeping source reproducible, the MVP loop runnable, and the model registry driving the UI.",
-    milestones: [
-      {
-        stage: "GATE 0",
-        title: "ENGINE REBUILD",
-        summary: "RESTORE SOURCE TREE / ESTABLISH RUNNABLE WEB WORKSPACE"
-      },
-      {
-        stage: "GATE 2",
-        title: "PROMPT CHAIN",
-        summary: "HOME / DETAIL / PUBLISH LINKED INTO ONE MVP FLOW"
-      },
-      {
-        stage: "GATE 4",
-        title: "MODERATION LOOP",
-        summary: "QUEUE / REVIEW / INTERACTION METRICS CLOSED"
-      }
-    ],
     registryEyebrow: "[ MODEL REGISTRY / ACTIVE ]",
     registryTitle: "SUPPORTED ENGINES",
     registryCopy:
@@ -872,7 +798,6 @@ const enUS: Dictionary = {
     hotCopy:
       "The search page supports full-text keyword, model filter, style, tone, usage and sort options.",
     hotRank: "RANK",
-    hotLoad: "QUERY LOAD / HIGH",
     feedEyebrow: "[ PROMPT LIBRARY / LATEST + TRENDING ]",
     feedTitle: "PROMPT DOSSIER WALL",
     feedCopy:
