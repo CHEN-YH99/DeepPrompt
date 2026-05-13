@@ -279,6 +279,12 @@ img {
   letter-spacing: 0.18em;
 }
 
+.card-author {
+  margin-top: -10px;
+  color: var(--text);
+  opacity: 0.78;
+}
+
 .stat-value,
 .card-value,
 .big-number {

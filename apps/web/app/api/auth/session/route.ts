@@ -2,23 +2,71 @@ import { NextRequest, NextResponse } from "next/server";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
-export async function GET(request: NextRequest) {
-  const accessToken = request.cookies.get("access_token")?.value;
-  if (!accessToken) {
-    return NextResponse.json({ data: null });
-  }
-
+async function fetchMe(token: string) {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/auth/me`, {
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: { authorization: `Bearer ${token}` },
       cache: "no-store"
     });
-    if (!response.ok) {
-      return NextResponse.json({ data: null });
-    }
-    const json = (await response.json()) as { data?: { nickname?: string; id?: string } };
-    return NextResponse.json({ data: json.data ?? null });
+    if (!response.ok) return null;
+    const json = (await response.json()) as {
+      data?: { nickname?: string; id?: string };
+    };
+    return json.data ?? null;
   } catch {
-    return NextResponse.json({ data: null });
+    return null;
   }
+}
+
+async function refreshAccessToken(refreshToken: string) {
+  try {
+    const response = await fetch(`${apiBaseUrl}/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    const json = (await response.json()) as {
+      data?: { access_token?: string };
+    };
+    return json.data?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const accessToken = request.cookies.get("access_token")?.value;
+  const refreshToken = request.cookies.get("refresh_token")?.value;
+  const fallbackNickname = request.cookies.get("user_nickname")?.value ?? null;
+
+  if (accessToken) {
+    const me = await fetchMe(accessToken);
+    if (me) {
+      return NextResponse.json({ data: me });
+    }
+  }
+
+  if (refreshToken) {
+    const newAccessToken = await refreshAccessToken(refreshToken);
+    if (newAccessToken) {
+      const me = await fetchMe(newAccessToken);
+      const response = NextResponse.json({ data: me ?? null });
+      response.cookies.set("access_token", newAccessToken, {
+        httpOnly: true,
+        maxAge: 15 * 60,
+        path: "/",
+        sameSite: "lax",
+        secure: false
+      });
+      return response;
+    }
+  }
+
+  if (fallbackNickname) {
+    return NextResponse.json({ data: { nickname: fallbackNickname }, stale: true });
+  }
+
+  return NextResponse.json({ data: null });
 }

@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
+
 export async function POST(request: NextRequest) {
+  const refreshToken = request.cookies.get("refresh_token")?.value;
+  if (refreshToken) {
+    try {
+      await fetch(`${apiBaseUrl}/v1/auth/logout`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        cache: "no-store"
+      });
+    } catch {
+      // ignore — local cookies are cleared regardless
+    }
+  }
+
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
-  result.cookies.set("access_token", "", {
-    httpOnly: true,
-    maxAge: 0,
-    path: "/",
-    sameSite: "lax",
-    secure: false
-  });
-  result.cookies.set("user_nickname", "", {
-    httpOnly: false,
-    maxAge: 0,
-    path: "/",
-    sameSite: "lax",
-    secure: false
-  });
+  const clear = (name: string, httpOnly: boolean) =>
+    result.cookies.set(name, "", {
+      httpOnly,
+      maxAge: 0,
+      path: "/",
+      sameSite: "lax",
+      secure: false
+    });
+  clear("access_token", true);
+  clear("refresh_token", true);
+  clear("user_nickname", false);
   return result;
 }

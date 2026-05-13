@@ -32,10 +32,16 @@ export async function POST(request: NextRequest) {
   }
 
   const json = (await response.json()) as {
-    data?: { access_token?: string; user?: { nickname?: string } };
+    data?: {
+      access_token?: string;
+      refresh_token?: string;
+      user?: { nickname?: string };
+    };
   };
   const accessToken = json.data?.access_token;
+  const refreshToken = json.data?.refresh_token;
   const nickname = json.data?.user?.nickname ?? "";
+  const sessionMaxAge = 7 * 24 * 60 * 60;
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   if (accessToken) {
     result.cookies.set("access_token", accessToken, {
@@ -46,10 +52,19 @@ export async function POST(request: NextRequest) {
       secure: false
     });
   }
+  if (refreshToken) {
+    result.cookies.set("refresh_token", refreshToken, {
+      httpOnly: true,
+      maxAge: sessionMaxAge,
+      path: "/",
+      sameSite: "lax",
+      secure: false
+    });
+  }
   if (nickname) {
     result.cookies.set("user_nickname", nickname, {
       httpOnly: false,
-      maxAge: 15 * 60,
+      maxAge: sessionMaxAge,
       path: "/",
       sameSite: "lax",
       secure: false

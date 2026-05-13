@@ -23,6 +23,7 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
         />
       </div>
       <div className="card-kicker">[{prompt.modelLabel}] / ID {prompt.id}</div>
+      <div className="card-kicker card-author">BY {prompt.author || "ANONYMOUS"}</div>
       <h3 className="prompt-title">{prompt.title}</h3>
       <p className="prompt-copy">{prompt.excerpt}</p>
       <div className="tag-row">

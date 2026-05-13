@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, updateTag } from "next/cache";
 import type { CreatePromptInput } from "@deepprompt/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
@@ -142,6 +143,19 @@ export async function POST(request: NextRequest) {
     data?: { id?: string };
   };
   const createdPromptId = json.data?.id;
+
+  // 让所有依赖 prompts 列表/详情/搜索/我的页面的 RSC 缓存立即失效，
+  // 这样发布完成的跳转目标页能直接呈现最新数据，无需用户手动刷新。
+  updateTag("prompts:list");
+  updateTag("prompts:search");
+  updateTag("prompts:detail");
+  updateTag("prompts:related");
+  revalidatePath("/");
+  revalidatePath("/search");
+  revalidatePath("/me/prompts");
+  if (createdPromptId) {
+    revalidatePath(`/prompts/${createdPromptId}`);
+  }
 
   if (createdPromptId && status !== "draft") {
     return NextResponse.redirect(
