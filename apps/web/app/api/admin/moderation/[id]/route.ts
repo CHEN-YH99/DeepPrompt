@@ -1,3 +1,4 @@
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
@@ -33,6 +34,21 @@ export async function POST(request: NextRequest, context: ModerationRouteContext
       return NextResponse.json({ ok: false, error: "api_failed" }, { status: response.status });
     }
     const json = (await response.json()) as { data?: { status?: string } };
+
+    revalidateTag("prompts:list", "max");
+    revalidateTag("prompts:search", "max");
+    revalidateTag("prompts:detail", "max");
+    revalidateTag("prompts:related", "max");
+    revalidateTag("models:list", "max");
+    revalidateTag("models:detail", "max");
+    revalidatePath("/");
+    revalidatePath("/search");
+    revalidatePath("/me/prompts");
+    revalidatePath("/me/collections");
+    revalidatePath("/models");
+    revalidatePath(`/prompts/${id}`);
+    revalidatePath("/admin/moderation");
+
     return NextResponse.json({ ok: true, status: json.data?.status ?? null });
   } catch {
     return NextResponse.json({ ok: false, error: "api_unreachable" }, { status: 502 });

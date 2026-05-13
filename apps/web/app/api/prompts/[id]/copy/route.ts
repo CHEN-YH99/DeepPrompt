@@ -1,3 +1,4 @@
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
@@ -17,6 +18,11 @@ export async function POST(request: NextRequest, context: CopyRouteContext) {
       method: "POST",
       cache: "no-store"
     });
+
+    revalidateTag("prompts:list", "max");
+    revalidateTag("prompts:search", "max");
+    revalidateTag("prompts:detail", "max");
+    revalidatePath(`/prompts/${id}`);
 
     if (isFetchRequest) {
       return NextResponse.json(

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 
+import { broadcastCacheInvalidation } from "@/components/cache-sync-provider";
+
 import type { Dictionary } from "@/lib/i18n";
 
 type CopyPromptButtonProps = {
@@ -56,6 +58,10 @@ export function CopyPromptButton({ promptId, promptText, labels }: CopyPromptBut
               "x-deepprompt-copy": "fetch"
             },
             cache: "no-store"
+          }).then((res) => {
+            if (res.ok) {
+              broadcastCacheInvalidation("copy", promptId);
+            }
           });
         } catch {
           setCopyState("error");

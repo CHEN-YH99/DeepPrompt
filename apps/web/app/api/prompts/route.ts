@@ -85,7 +85,27 @@ export async function POST(request: NextRequest) {
     .getAll("images")
     .filter((entry): entry is File => entry instanceof File && entry.size > 0)
     .slice(0, 6);
-  const status = formData.get("intent") === "draft" ? "draft" : "pending";
+  const intent = formData.get("intent");
+  let status: "draft" | "approved" | "pending";
+  if (intent === "draft") {
+    status = "draft";
+  } else {
+    // 管理员/版主发布直接通过，无需审核
+    let isPrivileged = false;
+    try {
+      const meRes = await fetch(`${apiBaseUrl}/v1/auth/me`, {
+        headers: { authorization: `Bearer ${accessToken}` },
+        cache: "no-store"
+      });
+      if (meRes.ok) {
+        const meJson = (await meRes.json()) as { data?: { role?: string } };
+        isPrivileged = meJson.data?.role === "admin" || meJson.data?.role === "moderator";
+      }
+    } catch {
+      // 查询失败时降级为 pending
+    }
+    status = isPrivileged ? "approved" : "pending";
+  }
 
   console.log("[publish] form snapshot", {
     titleLen: title.length,
@@ -96,8 +116,14 @@ export async function POST(request: NextRequest) {
     status
   });
 
-  if (!title || !promptText || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
-    console.warn("[publish] front-end payload check failed → invalid_prompt_payload");
+  if (title.length < 4 || promptText.length < 12 || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
+    console.warn("[publish] front-end payload check failed → invalid_prompt_payload", {
+      titleLen: title.length,
+      promptTextLen: promptText.length,
+      modelId,
+      hasImageUrl: Boolean(imageUrl),
+      uploadedFileCount: uploadedFiles.length
+    });
     return redirectWithError(request, "invalid_prompt_payload");
   }
 

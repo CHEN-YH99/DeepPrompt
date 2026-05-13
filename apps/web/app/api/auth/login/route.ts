@@ -35,12 +35,13 @@ export async function POST(request: NextRequest) {
     data?: {
       access_token?: string;
       refresh_token?: string;
-      user?: { nickname?: string };
+      user?: { nickname?: string; role?: string };
     };
   };
   const accessToken = json.data?.access_token;
   const refreshToken = json.data?.refresh_token;
-  const nickname = json.data?.user?.nickname ?? "";
+  const isAdmin = json.data?.user?.role === "admin" || json.data?.user?.role === "moderator";
+  const nickname = isAdmin ? "小灰超管" : (json.data?.user?.nickname ?? "");
   const sessionMaxAge = 7 * 24 * 60 * 60;
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   if (accessToken) {

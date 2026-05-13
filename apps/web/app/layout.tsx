@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { CacheSyncProvider } from "@/components/cache-sync-provider";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import "./globals.css";
@@ -62,6 +63,7 @@ export default function RootLayout({
       <body>
         {children}
         <TelemetryProvider />
+        <CacheSyncProvider />
       </body>
     </html>
   );

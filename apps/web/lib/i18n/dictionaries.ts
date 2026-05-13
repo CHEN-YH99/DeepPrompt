@@ -557,7 +557,7 @@ const zhCN: Dictionary = {
     imageUrl: "图片 URL / 备用",
     imageUrlHint: "没有本地文件时，可退回单张图片 URL。两者至少提供一种。",
     errorLoginRequired: "请先登录再发布提示词。",
-    errorInvalidPayload: "标题、提示词、模型，以及图片文件或示例图链接不能为空。",
+    errorInvalidPayload: "标题至少 4 字、提示词至少 12 字，模型和图片（文件或链接）不能为空。",
     errorApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
     errorUploadFailed: "图片上传失败，请检查文件格式、数量或大小后重试。",
     errorPublishFailed: "发布失败，请检查字段后重试。"
@@ -945,7 +945,7 @@ const enUS: Dictionary = {
     imageUrlHint: "Fall back to a single image URL when no local file is available.",
     errorLoginRequired: "Please log in before publishing a prompt.",
     errorInvalidPayload:
-      "Title, prompt, model, and either an image file or a fallback URL are required.",
+      "Title (4+ chars), prompt text (12+ chars), model, and either an image file or a fallback URL are required.",
     errorApiUnreachable: "API service is unreachable. Make sure the API is running.",
     errorUploadFailed: "Image upload failed. Check format, count and size, then retry.",
     errorPublishFailed: "Publish failed. Verify the fields and retry."

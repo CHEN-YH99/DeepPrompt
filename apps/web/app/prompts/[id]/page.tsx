@@ -178,7 +178,7 @@ export default async function PromptDetailPage({
               </div>
               <div>
                 <div className="mini-label">{dict.detail.metricStatus}</div>
-                <div className="card-value">{statusLabelMap[prompt.status]}</div>
+                <div className={`card-value status-badge ${prompt.status}`}>{statusLabelMap[prompt.status]}</div>
               </div>
             </div>
           </div>

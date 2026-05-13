@@ -105,7 +105,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   key={statusKey}
                   style={{ display: "block" }}
                 >
-                  <div className="stat-label">{tabLabelMap[statusKey]}</div>
+                  <div className={`stat-label status-badge ${statusKey}`}>{tabLabelMap[statusKey]}</div>
                   <div className="stat-value">{summary[statusKey] ?? 0}</div>
                 </Link>
               ))}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { broadcastCacheInvalidation } from "@/components/cache-sync-provider";
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import { toggleInteraction } from "@/lib/data";
 import type { Dictionary } from "@/lib/i18n";
@@ -75,6 +76,8 @@ export function InteractionBar({
       } else {
         setCollectCount(result.total);
       }
+      router.refresh();
+      broadcastCacheInvalidation("interaction", promptId);
     }
     setBusy(null);
   }

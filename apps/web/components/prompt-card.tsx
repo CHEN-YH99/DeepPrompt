@@ -44,6 +44,9 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
           {dict.common.metrics.copy} {prompt.copies}
         </span>
       </div>
+      <div className="kpi-row" style={{ marginTop: 2 }}>
+        <span>{prompt.createdAt}</span>
+      </div>
       <div className="action-row">
         <Link className="micro-action" href={`/prompts/${prompt.id}`}>
           {dict.common.actions.openDossier}

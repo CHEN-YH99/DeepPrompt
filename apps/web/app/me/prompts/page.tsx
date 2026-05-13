@@ -11,11 +11,13 @@ type MyPromptsPageProps = {
   searchParams?: Promise<{
     created?: string;
     status?: string;
+    page?: string;
   }>;
 };
 
 const STATUS_TABS = ["all", "approved", "pending", "draft", "rejected", "archived"] as const;
 type TabKey = (typeof STATUS_TABS)[number];
+const PAGE_SIZE = 10;
 
 function parseTab(value: string | undefined): TabKey {
   return (STATUS_TABS as readonly string[]).includes(value ?? "") ? (value as TabKey) : "all";
@@ -27,15 +29,19 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
   const accessToken = cookieStore.get("access_token")?.value;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const tab = parseTab(resolvedSearchParams?.status);
+  const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page ?? "1", 10) || 1);
   const statusFilter: PromptStatus | null = tab === "all" ? null : (tab as PromptStatus);
-  const [currentUser, promptRecords] = await Promise.all([
+  const [currentUser, allRecords] = await Promise.all([
     fetchCurrentUser(accessToken),
     fetchMyPromptRecords(accessToken, statusFilter)
   ]);
+  const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const promptRecords = allRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const createdMessage =
     resolvedSearchParams?.created === "1" ? dict.myPrompts.submittedForReviewNotice : "";
-  const totalCopies = promptRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
-  const totalCollects = promptRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
+  const totalCopies = allRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
+  const totalCollects = allRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
 
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "moderator";
 
@@ -55,6 +61,11 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
     rejected: dict.myPrompts.tabRejected,
     archived: dict.myPrompts.tabArchived
   };
+
+  function buildPageUrl(page: number) {
+    const base = tab === "all" ? "/me/prompts" : `/me/prompts?status=${tab}`;
+    return page <= 1 ? base : `${base}${tab === "all" ? "?" : "&"}page=${page}`;
+  }
 
   return (
     <Shell activePath="/me/prompts">
@@ -85,7 +96,7 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
             <div className="metric-board" style={{ marginTop: 18 }}>
               <div>
                 <div className="mini-label">{dict.myPrompts.totalPrompts}</div>
-                <div className="card-value">{promptRecords.length}</div>
+                <div className="card-value">{allRecords.length}</div>
               </div>
               <div>
                 <div className="mini-label">{dict.myPrompts.totalCopies}</div>
@@ -114,6 +125,7 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                   data-active={tab === key}
                   href={key === "all" ? "/me/prompts" : `/me/prompts?status=${key}`}
                   key={key}
+                  onClick={() => { /* 切换状态 tab 时重置到第1页 */ }}
                 >
                   {tabLabelMap[key]}
                 </Link>
@@ -145,7 +157,7 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                       <Link href={`/prompts/${row.id}`}>{row.title}</Link>
                     </span>
                     {isAdmin && <span className="row-author">{row.author}</span>}
-                    <span>{statusLabelMap[row.status] ?? row.status}</span>
+                    <span className={`status-badge ${row.status}`}>{statusLabelMap[row.status] ?? row.status}</span>
                     <span>{row.modelLabel}</span>
                     <span>
                       {applyVars(dict.myPrompts.rowMetricsCopiesLikes, {
@@ -175,6 +187,27 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                 </div>
               )}
             </div>
+            {totalPages > 1 && (
+              <div className="action-row" style={{ marginTop: 14 }}>
+                {safePage > 1 ? (
+                  <Link className="ghost-action" href={buildPageUrl(safePage - 1)}>
+                    ← 上一页
+                  </Link>
+                ) : (
+                  <span className="ghost-action" style={{ opacity: 0.3 }}>← 上一页</span>
+                )}
+                <span style={{ color: "var(--text-dim)", fontSize: 12, letterSpacing: "0.1em" }}>
+                  {safePage} / {totalPages}
+                </span>
+                {safePage < totalPages ? (
+                  <Link className="ghost-action" href={buildPageUrl(safePage + 1)}>
+                    下一页 →
+                  </Link>
+                ) : (
+                  <span className="ghost-action" style={{ opacity: 0.3 }}>下一页 →</span>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </main>

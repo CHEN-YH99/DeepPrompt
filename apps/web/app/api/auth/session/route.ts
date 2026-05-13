@@ -10,9 +10,13 @@ async function fetchMe(token: string) {
     });
     if (!response.ok) return null;
     const json = (await response.json()) as {
-      data?: { nickname?: string; id?: string };
+      data?: { nickname?: string; id?: string; role?: string };
     };
-    return json.data ?? null;
+    const data = json.data ?? null;
+    if (data && (data.role === "admin" || data.role === "moderator")) {
+      data.nickname = "小灰超管";
+    }
+    return data;
   } catch {
     return null;
   }

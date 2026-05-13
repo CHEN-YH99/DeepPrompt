@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { broadcastCacheInvalidation } from "@/components/cache-sync-provider";
 import { submitModerationAction } from "@/lib/data";
 import type { Dictionary } from "@/lib/i18n";
 import type { ModerationAction } from "@deepprompt/types";
@@ -28,6 +29,7 @@ export function ModerationActions({ promptId, labels }: ModerationActionsProps) 
     const ok = await submitModerationAction(promptId, action);
     if (ok) {
       startTransition(() => router.refresh());
+      broadcastCacheInvalidation("moderation", promptId);
     }
     setPendingAction(null);
   }
