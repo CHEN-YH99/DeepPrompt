@@ -65,6 +65,7 @@ export type Dictionary = {
     feedEyebrow: string;
     feedTitle: string;
     feedCopy: string;
+    welcomeBack: string;
   };
   search: {
     heroKicker: string;
@@ -332,6 +333,9 @@ export type Dictionary = {
     msgRegistered: string;
     msgInvalid: string;
     msgApiUnreachable: string;
+    captchaLabel: string;
+    captchaSuccess: string;
+    captchaHint: string;
   };
   register: {
     heroKicker: string;
@@ -342,9 +346,13 @@ export type Dictionary = {
     formEyebrow: string;
     formTitle: string;
     formCopy: string;
-    nickname: string;
     email: string;
     password: string;
+    emailInvalid: string;
+    passwordInvalid: string;
+    strengthWeak: string;
+    strengthMedium: string;
+    strengthStrong: string;
     msgExists: string;
     msgInvalid: string;
     msgApiUnreachable: string;
@@ -426,7 +434,8 @@ const zhCN: Dictionary = {
     feedEyebrow: "[ 提示词库 · 最新与热门 ]",
     feedTitle: "提示词档案墙",
     feedCopy:
-      "首页数据优先取自后端 API，API 不可用时回退到静态内容，保证开发体验不断档。"
+      "首页数据优先取自后端 API，API 不可用时回退到静态内容，保证开发体验不断档。",
+    welcomeBack: "{nickname}，欢迎回来"
   },
   search: {
     heroKicker: "[ 提示词搜索 · 筛选矩阵 ]",
@@ -704,7 +713,10 @@ const zhCN: Dictionary = {
     wechat: "微信登录",
     msgRegistered: "注册成功，请使用新账号登录。",
     msgInvalid: "账号或密码错误，请重试。",
-    msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。"
+    msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
+    captchaLabel: "拖动滑块验证",
+    captchaSuccess: "验证成功",
+    captchaHint: "请先完成验证"
   },
   register: {
     heroKicker: "[ 创建账号 · 新用户 ]",
@@ -716,9 +728,13 @@ const zhCN: Dictionary = {
     formEyebrow: "[ 注册表单 ]",
     formTitle: "新用户面板",
     formCopy: "提交后调用 /v1/auth/register，成功后引导到登录页完成登录。",
-    nickname: "昵称",
     email: "邮箱",
     password: "密码",
+    emailInvalid: "邮箱格式不正确",
+    passwordInvalid: "密码至少8位，需含字母和数字",
+    strengthWeak: "弱",
+    strengthMedium: "中",
+    strengthStrong: "强",
     msgExists: "该邮箱或手机号已注册，请直接登录。",
     msgInvalid: "注册信息不完整或格式不正确，请检查后重试。",
     msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
@@ -801,7 +817,8 @@ const enUS: Dictionary = {
     feedEyebrow: "[ PROMPT LIBRARY / LATEST + TRENDING ]",
     feedTitle: "PROMPT DOSSIER WALL",
     feedCopy:
-      "The home page prefers API data and falls back to static content when the API is offline, keeping the dev experience smooth."
+      "The home page prefers API data and falls back to static content when the API is offline, keeping the dev experience smooth.",
+    welcomeBack: "WELCOME BACK, {nickname}"
   },
   search: {
     heroKicker: "[ PROMPT SEARCH / FILTER ARRAY ]",
@@ -1085,7 +1102,10 @@ const enUS: Dictionary = {
     wechat: "WECHAT OAUTH",
     msgRegistered: "Registration successful. Please sign in with the new account.",
     msgInvalid: "Invalid account or password. Please retry.",
-    msgApiUnreachable: "API service is unreachable. Make sure the API is running."
+    msgApiUnreachable: "API service is unreachable. Make sure the API is running.",
+    captchaLabel: "DRAG TO VERIFY",
+    captchaSuccess: "VERIFIED",
+    captchaHint: "COMPLETE VERIFICATION FIRST"
   },
   register: {
     heroKicker: "[ ACCOUNT CREATE / NEW OPERATOR ]",
@@ -1098,9 +1118,13 @@ const enUS: Dictionary = {
     formTitle: "ONBOARD PANEL",
     formCopy:
       "Submits to /v1/auth/register and redirects to login after success.",
-    nickname: "NICKNAME",
     email: "EMAIL",
     password: "PASSWORD",
+    emailInvalid: "INVALID EMAIL FORMAT",
+    passwordInvalid: "MIN 8 CHARS, LETTER + NUMBER REQUIRED",
+    strengthWeak: "WEAK",
+    strengthMedium: "MEDIUM",
+    strengthStrong: "STRONG",
     msgExists: "Email or phone already registered. Please sign in directly.",
     msgInvalid: "Registration data is incomplete or invalid. Please review and retry.",
     msgApiUnreachable: "API service is unreachable. Make sure the API is running.",

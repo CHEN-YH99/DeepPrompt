@@ -31,7 +31,7 @@ export type RegisterRequest = {
   email?: string;
   phone?: string;
   password: string;
-  nickname: string;
+  nickname?: string;
 };
 
 export type LoginRequest = {

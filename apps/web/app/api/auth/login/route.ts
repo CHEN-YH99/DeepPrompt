@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     data?: { access_token?: string };
   };
   const accessToken = json.data?.access_token;
-  const result = NextResponse.redirect(new URL("/me/prompts", request.url), { status: 303 });
+  const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   if (accessToken) {
     result.cookies.set("access_token", accessToken, {
       httpOnly: true,

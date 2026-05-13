@@ -1,3 +1,4 @@
+import { LoginForm } from "@/components/login-form";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import { getDictionary } from "@/lib/i18n";
@@ -6,6 +7,7 @@ type LoginPageProps = {
   searchParams?: Promise<{
     error?: string;
     registered?: string;
+    email?: string;
   }>;
 };
 
@@ -21,6 +23,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const message = getLoginMessage(resolvedSearchParams);
+  const presetAccount = resolvedSearchParams?.email ?? "";
 
   return (
     <Shell activePath="/login">
@@ -44,52 +47,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               title={dict.login.formTitle}
               copy={dict.login.formCopy}
             />
-            {message ? (
-              <div
-                style={{
-                  marginTop: 14,
-                  border: "1px solid #22c55e",
-                  padding: "10px 12px",
-                  color: "#bbf7d0",
-                  background: "rgba(20, 83, 45, 0.25)"
-                }}
-              >
-                {message}
-              </div>
-            ) : null}
-            <form action="/api/auth/login" className="form-stack" method="post" style={{ marginTop: 18 }}>
-              <div className="field">
-                <label className="field-label" htmlFor="account">
-                  {dict.login.account}
-                </label>
-                <input id="account" name="account" required />
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="password">
-                  {dict.login.password}
-                </label>
-                <input id="password" name="password" required type="password" />
-              </div>
-              <div className="action-row">
-                <button className="action" type="submit">
-                  {dict.common.actions.enterSystem}
-                </button>
-                <a className="ghost-action" href="/register">
-                  {dict.common.actions.createAccount}
-                </a>
-              </div>
-              <div className="panel-grid">
-                <button className="ghost-action" type="button">
-                  {dict.login.google}
-                </button>
-                <button className="ghost-action" type="button">
-                  {dict.login.github}
-                </button>
-                <button className="ghost-action" type="button">
-                  {dict.login.wechat}
-                </button>
-              </div>
-            </form>
+            <LoginForm
+              commonLabels={dict.common}
+              labels={dict.login}
+              message={message}
+              presetAccount={presetAccount}
+            />
           </div>
         </section>
       </main>

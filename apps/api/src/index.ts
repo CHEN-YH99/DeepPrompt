@@ -285,6 +285,15 @@ function success<T>(res: Response, data: T, meta?: Record<string, unknown>) {
   res.json(body);
 }
 
+function generateNickname(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `DT_${suffix}`;
+}
+
 function fail(res: Response, code: number, errorCode: string, message: string) {
   const body: ApiError = {
     error: {
@@ -603,7 +612,7 @@ app.get("/ready", async (_req, res) => {
 app.post("/v1/auth/register", async (req, res) => {
   const body = (req.body ?? {}) as RegisterRequest & { invite_code?: string };
   const password = body.password;
-  const nickname = body.nickname?.trim();
+  const nickname = body.nickname?.trim() || generateNickname();
   const email = body.email?.trim().toLowerCase() ?? null;
   const phone = body.phone?.trim() ?? null;
   const inviteRequired =
@@ -612,11 +621,6 @@ app.post("/v1/auth/register", async (req, res) => {
 
   if (!password || password.length < 8) {
     fail(res, 400, "BAD_REQUEST", "Password must be at least 8 characters");
-    return;
-  }
-
-  if (!nickname || nickname.length < 2) {
-    fail(res, 400, "BAD_REQUEST", "Nickname must be at least 2 characters");
     return;
   }
 

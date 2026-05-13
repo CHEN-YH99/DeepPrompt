@@ -1,3 +1,4 @@
+import { RegisterForm } from "@/components/register-form";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import { getDictionary } from "@/lib/i18n";
@@ -50,59 +51,13 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               title={dict.register.formTitle}
               copy={dict.register.formCopy}
             />
-            {errorMessage ? (
-              <div
-                style={{
-                  marginTop: 14,
-                  border: "1px solid #ef4444",
-                  padding: "10px 12px",
-                  color: "#fecaca",
-                  background: "rgba(127, 29, 29, 0.28)"
-                }}
-              >
-                {errorMessage}
-              </div>
-            ) : null}
-            <form action="/api/auth/register" className="form-stack" method="post" style={{ marginTop: 18 }}>
-              <div className="field">
-                <label className="field-label" htmlFor="nickname">
-                  {dict.register.nickname}
-                </label>
-                <input id="nickname" name="nickname" required />
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="email">
-                  {dict.register.email}
-                </label>
-                <input id="email" name="email" required type="email" />
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="password">
-                  {dict.register.password}
-                </label>
-                <input id="password" minLength={8} name="password" required type="password" />
-              </div>
-              <div className="field">
-                <label className="field-label" htmlFor="invite_code">
-                  邀请码{inviteRequired ? "（必填）" : "（可选）"}
-                </label>
-                <input
-                  defaultValue={presetInvite}
-                  id="invite_code"
-                  name="invite_code"
-                  placeholder="DP-XXXXXXXX"
-                  required={inviteRequired}
-                />
-              </div>
-              <div className="action-row">
-                <button className="action" type="submit">
-                  {dict.common.actions.createAccount}
-                </button>
-                <a className="ghost-action" href="/login">
-                  {dict.common.actions.backToLogin}
-                </a>
-              </div>
-            </form>
+            <RegisterForm
+              commonLabels={dict.common}
+              errorMessage={errorMessage}
+              inviteRequired={inviteRequired}
+              labels={dict.register}
+              presetInvite={presetInvite}
+            />
           </div>
         </section>
       </main>

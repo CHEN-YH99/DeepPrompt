@@ -5,9 +5,9 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:301
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const inviteCode = String(formData.get("invite_code") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
   const payload: Record<string, string> = {
-    nickname: String(formData.get("nickname") ?? ""),
-    email: String(formData.get("email") ?? ""),
+    email,
     password: String(formData.get("password") ?? "")
   };
   if (inviteCode.length > 0) {
@@ -56,5 +56,6 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.redirect(new URL("/login?registered=1", request.url), { status: 303 });
+  const emailParam = email ? `&email=${encodeURIComponent(email)}` : "";
+  return NextResponse.redirect(new URL(`/login?registered=1${emailParam}`, request.url), { status: 303 });
 }

@@ -3,6 +3,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import {
   featuredPrompt,
+  fetchCurrentUser,
   fetchModels,
   fetchPromptRecords,
   searchHotTerms
@@ -19,8 +20,18 @@ export default async function HomePage() {
   ]);
   const featured = promptRecords[0] ?? featuredPrompt;
 
+  let currentUser: { nickname: string } | null = null;
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("access_token")?.value;
+    currentUser = await fetchCurrentUser(accessToken ?? undefined);
+  } catch {
+    // anonymous
+  }
+
   return (
-    <Shell activePath="/">
+    <Shell activePath="/" nickname={currentUser?.nickname}>
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / HERO-01">
@@ -33,6 +44,13 @@ export default async function HomePage() {
               {dict.home.heroTitleLine3}
             </h1>
             <p className="lede">{dict.home.heroLede}</p>
+            {currentUser ? (
+              <p className="lede" style={{ color: "var(--ok)" }}>
+                {(dict.home as Record<string, string>).welcomeBack
+                  ? (dict.home as Record<string, string>).welcomeBack.replace("{nickname}", currentUser.nickname)
+                  : `${currentUser.nickname}，欢迎回来`}
+              </p>
+            ) : null}
             <div className="action-row">
               <a className="action" href="/publish">
                 {dict.home.heroPrimary}
