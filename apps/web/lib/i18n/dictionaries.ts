@@ -37,7 +37,7 @@ type CommonDict = {
 
 export type Dictionary = {
   common: CommonDict;
-  nav: Record<"home" | "search" | "models" | "publish" | "myPrompts" | "login", string>;
+  nav: Record<"home" | "search" | "models" | "publish" | "myPrompts" | "login" | "logout" | "confirmLogout", string>;
   home: {
     heroKicker: string;
     heroTitleLine1: string;
@@ -403,7 +403,9 @@ const zhCN: Dictionary = {
     models: "模型",
     publish: "发布",
     myPrompts: "我的",
-    login: "登录"
+    login: "登录",
+    logout: "退出登录",
+    confirmLogout: "确认退出登录？"
   },
   home: {
     heroKicker: "[ 今日精选提示词 ]",
@@ -785,7 +787,9 @@ const enUS: Dictionary = {
     models: "MODELS",
     publish: "PUBLISH",
     myPrompts: "MY PROMPTS",
-    login: "LOGIN"
+    login: "LOGIN",
+    logout: "LOG OUT",
+    confirmLogout: "CONFIRM LOG OUT?"
   },
   home: {
     heroKicker: "[ TODAY'S FEATURED PROMPT ]",

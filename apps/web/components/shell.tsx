@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 
-import { fetchCurrentUser } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
+import { UserNav } from "@/components/user-nav";
 
 type ShellProps = {
   activePath: string;
   children: React.ReactNode;
 };
 
-export async function Shell({ activePath, children }: ShellProps) {
+export function Shell({ activePath, children }: ShellProps) {
   const dict = getDictionary();
   const navItems: Array<{ href: string; label: string }> = [
     { href: "/", label: dict.nav.home },
@@ -18,18 +17,6 @@ export async function Shell({ activePath, children }: ShellProps) {
     { href: "/publish", label: dict.nav.publish },
     { href: "/me/prompts", label: dict.nav.myPrompts }
   ];
-
-  let nickname: string | undefined;
-  try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
-    if (accessToken) {
-      const user = await fetchCurrentUser(accessToken);
-      nickname = user?.nickname;
-    }
-  } catch {
-    // anonymous
-  }
 
   return (
     <>
@@ -51,19 +38,11 @@ export async function Shell({ activePath, children }: ShellProps) {
                 {item.label}
               </Link>
             ))}
-            {nickname ? (
-              <Link className="nav-link nav-user" href="/me/prompts">
-                {nickname}
-              </Link>
-            ) : (
-              <Link
-                className="nav-link"
-                data-active={activePath === "/login"}
-                href="/login"
-              >
-                {dict.nav.login}
-              </Link>
-            )}
+            <UserNav
+              confirmLogoutLabel={dict.nav.confirmLogout}
+              loginLabel={dict.nav.login}
+              logoutLabel={dict.nav.logout}
+            />
           </nav>
         </header>
       </div>

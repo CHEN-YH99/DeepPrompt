@@ -637,6 +637,98 @@ img {
 .nav-user {
   background: rgba(74, 246, 38, 0.1);
   color: var(--ok);
+  cursor: pointer;
+  border: 0;
+  font: inherit;
+}
+
+.user-nav {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 100%;
+  border-left: 1px solid var(--line);
+}
+
+.nav-user-loading {
+  opacity: 0.4;
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  outline: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.confirm-overlay[data-visible="true"] {
+  opacity: 1;
+}
+
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.confirm-box {
+  position: relative;
+  min-width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: 28px 24px 20px;
+  color: var(--text);
+  transform: scale(0.92);
+  opacity: 0;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.confirm-box[data-visible="true"] {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.confirm-msg {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+  margin: 0 0 24px;
+  color: var(--text);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.confirm-cancel,
+.confirm-ok {
+  padding: 8px 20px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.confirm-cancel:hover {
+  background: var(--line);
+}
+
+.confirm-ok {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.confirm-ok:hover {
+  background: rgba(230, 25, 25, 0.18);
 }
 
 .checkbox-grid {
