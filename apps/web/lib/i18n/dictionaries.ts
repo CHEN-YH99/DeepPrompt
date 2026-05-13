@@ -235,6 +235,7 @@ export type Dictionary = {
     listCopy: string;
     collectionsLink: string;
     colName: string;
+    colAuthor: string;
     colState: string;
     colModel: string;
     colMetrics: string;
@@ -615,6 +616,7 @@ const zhCN: Dictionary = {
     listCopy: "已接入后端状态机，发布后 pending / draft / approved 实时同步。",
     collectionsLink: "查看我的收藏",
     colName: "标题",
+    colAuthor: "发布者",
     colState: "状态",
     colModel: "模型",
     colMetrics: "指标",
@@ -1005,6 +1007,7 @@ const enUS: Dictionary = {
       "Hooked to the backend status machine: pending / draft / approved sync as soon as you publish.",
     collectionsLink: "VIEW MY COLLECTIONS",
     colName: "ENTRY NAME",
+    colAuthor: "AUTHOR",
     colState: "STATE",
     colModel: "MODEL",
     colMetrics: "METRICS",

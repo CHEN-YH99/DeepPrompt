@@ -809,6 +809,21 @@ img {
   padding: 14px 16px;
 }
 
+.table-row.admin-row {
+  grid-template-columns: 1fr 0.6fr 0.7fr 0.6fr 0.6fr 0.9fr;
+}
+
+.row-actions .action-row {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.row-actions .action,
+.row-actions .ghost-action {
+  padding: 4px 10px;
+  font-size: 10px;
+}
+
 .table-row.head {
   color: var(--text-dim);
   font-size: 10px;
@@ -872,7 +887,8 @@ img {
     grid-template-columns: 1fr;
   }
 
-  .table-row {
+  .table-row,
+  .table-row.admin-row {
     grid-template-columns: 1fr;
   }
 

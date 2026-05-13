@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { getDictionary } from "@/lib/i18n";
 import { UserNav } from "@/components/user-nav";
@@ -8,7 +9,7 @@ type ShellProps = {
   children: React.ReactNode;
 };
 
-export function Shell({ activePath, children }: ShellProps) {
+export async function Shell({ activePath, children }: ShellProps) {
   const dict = getDictionary();
   const navItems: Array<{ href: string; label: string }> = [
     { href: "/", label: dict.nav.home },
@@ -17,6 +18,14 @@ export function Shell({ activePath, children }: ShellProps) {
     { href: "/publish", label: dict.nav.publish },
     { href: "/me/prompts", label: dict.nav.myPrompts }
   ];
+
+  let initialNickname: string | null = null;
+  try {
+    const cookieStore = await cookies();
+    initialNickname = cookieStore.get("user_nickname")?.value ?? null;
+  } catch {
+    // anonymous
+  }
 
   return (
     <>
@@ -40,6 +49,7 @@ export function Shell({ activePath, children }: ShellProps) {
             ))}
             <UserNav
               confirmLogoutLabel={dict.nav.confirmLogout}
+              initialNickname={initialNickname}
               loginLabel={dict.nav.login}
               logoutLabel={dict.nav.logout}
             />

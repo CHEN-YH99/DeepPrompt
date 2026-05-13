@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell";
 import { fetchCurrentUser, fetchMyPromptRecords } from "@/lib/data";
 import { applyVars, getDictionary } from "@/lib/i18n";
 import type { PromptStatus } from "@deepprompt/types";
+import { ModerationActions } from "@/components/moderation-actions";
 
 type MyPromptsPageProps = {
   searchParams?: Promise<{
@@ -35,6 +36,8 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
     resolvedSearchParams?.created === "1" ? dict.myPrompts.submittedForReviewNotice : "";
   const totalCopies = promptRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
   const totalCollects = promptRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
+
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   const statusLabelMap: Record<PromptStatus, string> = {
     approved: dict.common.status.approved,
@@ -127,18 +130,21 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
               copy={dict.myPrompts.listCopy}
             />
             <div className="list-table" style={{ marginTop: 18 }}>
-              <div className="table-row head">
+              <div className={`table-row head${isAdmin ? " admin-row" : ""}`}>
                 <span>{dict.myPrompts.colName}</span>
+                {isAdmin && <span>{dict.myPrompts.colAuthor}</span>}
                 <span>{dict.myPrompts.colState}</span>
                 <span>{dict.myPrompts.colModel}</span>
                 <span>{dict.myPrompts.colMetrics}</span>
+                {isAdmin && <span>操作</span>}
               </div>
               {promptRecords.length > 0 ? (
                 promptRecords.map((row) => (
-                  <div className="table-row" key={row.id}>
+                  <div className={`table-row${isAdmin ? " admin-row" : ""}`} key={row.id}>
                     <span>
                       <Link href={`/prompts/${row.id}`}>{row.title}</Link>
                     </span>
+                    {isAdmin && <span className="row-author">{row.author}</span>}
                     <span>{statusLabelMap[row.status] ?? row.status}</span>
                     <span>{row.modelLabel}</span>
                     <span>
@@ -147,11 +153,17 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                         likes: row.likes
                       })}
                     </span>
+                    {isAdmin && (
+                      <span className="row-actions">
+                        <ModerationActions labels={dict.moderation} promptId={row.id} />
+                      </span>
+                    )}
                   </div>
                 ))
               ) : (
-                <div className="table-row">
+                <div className={`table-row${isAdmin ? " admin-row" : ""}`}>
                   <span>{dict.myPrompts.emptyName}</span>
+                  {isAdmin && <span>--</span>}
                   <span>
                     {currentUser ? dict.myPrompts.emptyStateLogged : dict.myPrompts.emptyStateLocked}
                   </span>
@@ -159,6 +171,7 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                   <span>
                     {currentUser ? dict.myPrompts.emptyTip : dict.common.actions.loginFirst}
                   </span>
+                  {isAdmin && <span></span>}
                 </div>
               )}
             </div>

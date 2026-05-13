@@ -64,7 +64,7 @@ async function persistUploadedFile(file: File) {
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   if (!accessToken) {
-    return NextResponse.redirect(new URL("/login?error=login_required", request.url), {
+    return NextResponse.redirect(new URL("/publish?error=login_required", request.url), {
       status: 303
     });
   }
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     .getAll("images")
     .filter((entry): entry is File => entry instanceof File && entry.size > 0)
     .slice(0, 6);
-  const status = formData.get("intent") === "draft" ? "draft" : "approved";
+  const status = formData.get("intent") === "draft" ? "draft" : "pending";
 
   if (!title || !promptText || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
     return redirectWithError(request, "invalid_prompt_payload");

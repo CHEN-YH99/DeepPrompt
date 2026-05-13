@@ -6,19 +6,19 @@ import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type UserNavProps = {
+  initialNickname: string | null;
   loginLabel: string;
   logoutLabel: string;
   confirmLogoutLabel: string;
 };
 
-function readNicknameCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)user_nickname=([^;]*)/);
-  return match ? decodeURIComponent(match[1] ?? "") : null;
-}
-
-export function UserNav({ loginLabel, logoutLabel, confirmLogoutLabel }: UserNavProps) {
-  const [nickname, setNickname] = useState<string | null>(readNicknameCookie);
+export function UserNav({
+  initialNickname,
+  loginLabel,
+  logoutLabel,
+  confirmLogoutLabel
+}: UserNavProps) {
+  const [nickname, setNickname] = useState<string | null>(initialNickname);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function UserNav({ loginLabel, logoutLabel, confirmLogoutLabel }: UserNav
 
   if (!nickname) {
     return (
-      <div className="user-nav" suppressHydrationWarning>
+      <div className="user-nav">
         <Link className="nav-link" href="/login">
           {loginLabel}
         </Link>
@@ -50,7 +50,7 @@ export function UserNav({ loginLabel, logoutLabel, confirmLogoutLabel }: UserNav
   }
 
   return (
-    <div className="user-nav" suppressHydrationWarning>
+    <div className="user-nav">
       <button
         className="nav-link nav-user"
         onClick={() => setShowLogoutConfirm(true)}
