@@ -31,7 +31,7 @@ export default async function HomePage() {
   }
 
   return (
-    <Shell activePath="/" nickname={currentUser?.nickname}>
+    <Shell activePath="/">
       <main className="shell">
         <section className="page-grid two-col">
           <div className="section" data-unit="UNIT / HERO-01">
@@ -47,7 +47,7 @@ export default async function HomePage() {
             {currentUser ? (
               <p className="lede" style={{ color: "var(--ok)" }}>
                 {(dict.home as Record<string, string>).welcomeBack
-                  ? (dict.home as Record<string, string>).welcomeBack.replace("{nickname}", currentUser.nickname)
+                  ? (dict.home as Record<string, string>).welcomeBack?.replace("{nickname}", currentUser.nickname)
                   : `${currentUser.nickname}，欢迎回来`}
               </p>
             ) : null}

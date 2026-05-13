@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
+import { fetchCurrentUser } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
 type ShellProps = {
   activePath: string;
   children: React.ReactNode;
-  nickname?: string;
 };
 
-export function Shell({ activePath, children, nickname }: ShellProps) {
+export async function Shell({ activePath, children }: ShellProps) {
   const dict = getDictionary();
   const navItems: Array<{ href: string; label: string }> = [
     { href: "/", label: dict.nav.home },
@@ -17,6 +18,18 @@ export function Shell({ activePath, children, nickname }: ShellProps) {
     { href: "/publish", label: dict.nav.publish },
     { href: "/me/prompts", label: dict.nav.myPrompts }
   ];
+
+  let nickname: string | undefined;
+  try {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("access_token")?.value;
+    if (accessToken) {
+      const user = await fetchCurrentUser(accessToken);
+      nickname = user?.nickname;
+    }
+  } catch {
+    // anonymous
+  }
 
   return (
     <>
