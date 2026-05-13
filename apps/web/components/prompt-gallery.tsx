@@ -27,7 +27,13 @@ export function PromptGallery({ title, images }: PromptGalleryProps) {
   return (
     <div className="gallery-stack">
       <div className="prompt-thumb gallery-main" style={{ minHeight: 560 }}>
-        <img alt={title} src={activeImage.url} />
+        <img
+          alt={title}
+          src={activeImage.url}
+          decoding="async"
+          loading="eager"
+          fetchPriority="high"
+        />
       </div>
       {safeImages.length > 1 ? (
         <div className="gallery-strip">
@@ -39,7 +45,12 @@ export function PromptGallery({ title, images }: PromptGalleryProps) {
               onClick={() => setActiveIndex(index)}
               type="button"
             >
-              <img alt={`${title} ${index + 1}`} src={image.thumbUrl ?? image.url} />
+              <img
+                alt={`${title} ${index + 1}`}
+                src={image.thumbUrl ?? image.url}
+                decoding="async"
+                loading="lazy"
+              />
             </button>
           ))}
         </div>

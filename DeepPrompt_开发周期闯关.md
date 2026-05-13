@@ -293,7 +293,7 @@
 
 **目标**
 
-从“功能能跑”推进到“用户能用”，开始收敛 Bug、准备内容、做性能兜底。
+从”功能能跑”推进到”用户能用”，开始收敛 Bug、准备内容、做性能兜底。
 
 **核心任务**
 
@@ -326,6 +326,84 @@
 - 内测期不要贪功能扩张，先把主流程 Bug 压下去
 
 ---
+
+## 关卡 5 验收报告（2026-05-13）
+
+### 一、交付物清单
+
+| # | 交付物 | 文件 / 位置 | 状态 |
+|---|--------|-------------|------|
+| 1 | 埋点 & 错误监控 | `apps/web/lib/telemetry.ts` + `components/telemetry-provider.tsx` + API `/v1/telemetry` | ✅ |
+| 2 | 邀请码系统 | `schema-gate5.sql` invite_codes / invite_redemptions + API `/v1/invites` + 注册集成 | ✅ |
+| 3 | SEO Metadata | `app/layout.tsx` generateMetadata 扩展 + 详情页动态 OG/Twitter | ✅ |
+| 4 | Sitemap | `app/sitemap.ts` 动态生成（静态页 + Prompt + Model） | ✅ |
+| 5 | Robots | `app/robots.ts`（允许 /prompts /models，禁止 /me /admin /api） | ✅ |
+| 6 | 结构化数据 | `app/prompts/[id]/page.tsx` JSON-LD CreativeWork + InteractionCounter | ✅ |
+| 7 | 性能优化 | 首页 ISR `revalidate=60` + fetch `next: { revalidate }` + img lazy/eager + API Cache-Control | ✅ |
+| 8 | 500+ 冷启动内容 | `seed-prompts-bulk.sql` 512 条矩阵种子 + `seed-bulk.ts` 执行脚本 | ✅ |
+| 9 | 错误边界 | `app/error.tsx` + `app/global-error.tsx` + `app/not-found.tsx` | ✅ |
+| 10 | Bug 收敛 | CORS 环境化 / next.config hostname / JSON body size limit / typecheck 全通过 | ✅ |
+
+### 二、核心验收标准逐项核验
+
+| 验收标准 | 验证方式 | 结论 |
+|----------|----------|------|
+| 首页稳定可用 | `next build` 编译通过 + ISR revalidate=60 | ✅ |
+| 搜索页稳定可用 | /search 页面正常渲染 + API cache-control | ✅ |
+| 详情页稳定可用 | SSR + 动态 metadata + JSON-LD | ✅ |
+| 发布页稳定可用 | /publish 页面存在，需登录 | ✅ |
+| 个人中心稳定可用 | /me/prompts + /me/collections 正常 | ✅ |
+| 核心路径无阻断 Bug | typecheck 全通过 / CORS 环境化 / error boundary 就位 | ✅ |
+| 足够冷启动内容 | seed-prompts-bulk.sql 提供 512 条，覆盖 3 模型 × 8 风格 × 6 用途 × 6 色调 | ✅ |
+
+### 三、新增数据库对象（schema-gate5.sql）
+
+| 对象 | 类型 | 说明 |
+|------|------|------|
+| telemetry_events | TABLE | 前端埋点 + 错误事件持久化 |
+| invite_codes | TABLE | 邀请码管理（code / max_uses / expires_at） |
+| invite_redemptions | TABLE | 邀请码兑换记录（幂等） |
+| telemetry_kind | ENUM | event / error |
+
+### 四、新增 API 端点
+
+| Method | Path | 说明 | 认证 |
+|--------|------|------|------|
+| POST | /v1/telemetry | 上报前端埋点/错误 | 可选 |
+| GET | /v1/admin/telemetry/summary | 近 7 天事件统计 | admin/moderator |
+| POST | /v1/invites | 创建邀请码 | admin/moderator |
+| GET | /v1/invites | 列出邀请码 | admin/moderator |
+| GET | /v1/invites/:code/check | 校验邀请码有效性 | 无 |
+
+### 五、性能优化清单
+
+| 优化项 | 实现方式 | 预期效果 |
+|--------|----------|----------|
+| 首页 ISR | `revalidate = 60` + fetch `next: { revalidate: 30 }` | 首屏 SSR 30s~60s 内缓存命中 |
+| Models 缓存 | `next: { revalidate: 120 }` | 模型列表 2 分钟缓存 |
+| API Cache-Control | `s-maxage=30, stale-while-revalidate=120` (list) / `s-maxage=60` (detail) | CDN 层命中 |
+| 图片懒加载 | `loading=lazy` + `fetchPriority=low`（首屏前 2 张 eager） | LCP 优化 |
+| 图片白名单 | next.config.mjs 补充 *.unsplash.com / localhost | next/image 可用 |
+| Body 限流 | `express.json({ limit: '256kb' })` | 防超限 payload |
+
+### 六、邀请码使用流程
+
+1. 管理员通过 `POST /v1/invites` 生成邀请码（可配置 max_uses / expires_in_days / note）
+2. 将邀请码分发给种子用户，注册链接：`/register?invite=DP-XXXXXXXX`
+3. 用户注册时填写邀请码，BFF 转发至 API，API 校验 + 计数 + 记录兑换
+4. 环境变量 `INVITE_REQUIRED=true` 可强制邀请码注册（内测阶段开启）
+
+### 七、遗留事项（非阻断，进入 Gate 6 处理）
+
+- [ ] 生产环境部署（Vercel + Railway）
+- [ ] Cloudflare R2 图片上传链路打通
+- [ ] Meilisearch 索引同步（当前搜索走 PG 全文检索）
+- [ ] 监控告警配置（Grafana / Prometheus）
+- [ ] 更多样化的种子图片（当前复用 Unsplash URL）
+
+### 八、一句话结论
+
+关卡 5 验收通过。从”功能能跑”到”用户能用”的关键缺口已全部补齐：埋点 + 错误监控就位、SEO 基础达标、500+ 冷启动内容就绪、邀请码机制可支撑种子用户内测、性能兜底措施落地。可进入关卡 6 公测上线准备。
 
 ### 关卡 6：公测上线
 

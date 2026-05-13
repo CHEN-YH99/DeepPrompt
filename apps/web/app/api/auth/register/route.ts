@@ -4,11 +4,15 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:301
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
-  const payload = {
+  const inviteCode = String(formData.get("invite_code") ?? "").trim();
+  const payload: Record<string, string> = {
     nickname: String(formData.get("nickname") ?? ""),
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? "")
   };
+  if (inviteCode.length > 0) {
+    payload.invite_code = inviteCode;
+  }
 
   let response: Response;
   try {
@@ -37,6 +41,12 @@ export async function POST(request: NextRequest) {
         error = "email_or_phone_exists";
       } else if (code === "BAD_REQUEST") {
         error = "invalid_register_payload";
+      } else if (code === "INVITE_REQUIRED") {
+        error = "invite_required";
+      } else if (code === "INVITE_NOT_FOUND" || code === "INVITE_EXHAUSTED" || code === "INVITE_DISABLED") {
+        error = "invite_invalid";
+      } else if (code === "INVITE_EXPIRED") {
+        error = "invite_expired";
       }
     } catch {
       error = "register_failed";

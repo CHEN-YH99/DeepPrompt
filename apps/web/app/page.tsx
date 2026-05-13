@@ -9,6 +9,8 @@ import {
 } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
+export const revalidate = 60;
+
 export default async function HomePage() {
   const dict = getDictionary();
   const [modelRecords, promptRecords] = await Promise.all([
@@ -151,8 +153,8 @@ export default async function HomePage() {
               copy={dict.home.feedCopy}
             />
             <div className="prompt-grid" style={{ marginTop: 18 }}>
-              {promptRecords.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} />
+              {promptRecords.map((prompt, index) => (
+                <PromptCard key={prompt.id} prompt={prompt} priority={index < 2} />
               ))}
             </div>
           </div>

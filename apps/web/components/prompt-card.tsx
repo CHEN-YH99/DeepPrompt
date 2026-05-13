@@ -6,14 +6,21 @@ import { getDictionary } from "@/lib/i18n";
 
 type PromptCardProps = {
   prompt: PromptRecord;
+  priority?: boolean;
 };
 
-export function PromptCard({ prompt }: PromptCardProps) {
+export function PromptCard({ prompt, priority }: PromptCardProps) {
   const dict = getDictionary();
   return (
     <article className="prompt-card">
       <div className="prompt-thumb">
-        <img alt={prompt.title} src={prompt.cover} />
+        <img
+          alt={prompt.title}
+          src={prompt.cover}
+          decoding="async"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "low"}
+        />
       </div>
       <div className="card-kicker">[{prompt.modelLabel}] / ID {prompt.id}</div>
       <h3 className="prompt-title">{prompt.title}</h3>

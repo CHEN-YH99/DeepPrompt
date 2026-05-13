@@ -184,12 +184,33 @@ if (redisUrl) {
 
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: (process.env.WEB_ORIGIN ?? "http://localhost:3000")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0),
     credentials: true
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "256kb" }));
 app.use(cookieParser());
+
+function getClientIp(req: Request): string | null {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0]?.trim() ?? null;
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0] ?? null;
+  }
+  return req.ip ?? null;
+}
+
+function setPublicCache(res: Response, seconds: number, swr = seconds * 4) {
+  res.setHeader(
+    "Cache-Control",
+    `public, max-age=0, s-maxage=${seconds}, stale-while-revalidate=${swr}`
+  );
+}
 
 function success<T>(res: Response, data: T, meta?: Record<string, unknown>) {
   const body: ApiSuccess<T> = { data, meta };
@@ -482,11 +503,14 @@ app.get("/health", (_req, res) => {
 });
 
 app.post("/v1/auth/register", async (req, res) => {
-  const body = (req.body ?? {}) as RegisterRequest;
+  const body = (req.body ?? {}) as RegisterRequest & { invite_code?: string };
   const password = body.password;
   const nickname = body.nickname?.trim();
   const email = body.email?.trim().toLowerCase() ?? null;
   const phone = body.phone?.trim() ?? null;
+  const inviteRequired =
+    (process.env.INVITE_REQUIRED ?? "false").toLowerCase() === "true";
+  const inviteCode = body.invite_code?.trim();
 
   if (!password || password.length < 8) {
     fail(res, 400, "BAD_REQUEST", "Password must be at least 8 characters");
@@ -503,9 +527,53 @@ app.post("/v1/auth/register", async (req, res) => {
     return;
   }
 
+  let invite: {
+    code: string;
+    max_uses: number;
+    used_count: number;
+    expires_at: Date | null;
+    disabled_at: Date | null;
+  } | null = null;
+
+  if (inviteRequired || (inviteCode && inviteCode.length > 0)) {
+    if (!inviteCode) {
+      fail(res, 400, "INVITE_REQUIRED", "Invite code is required");
+      return;
+    }
+    const inviteResult = await pgClient.query<{
+      code: string;
+      max_uses: number;
+      used_count: number;
+      expires_at: Date | null;
+      disabled_at: Date | null;
+    }>(
+      `SELECT code, max_uses, used_count, expires_at, disabled_at
+       FROM invite_codes WHERE code = $1 LIMIT 1`,
+      [inviteCode]
+    );
+    invite = inviteResult.rows[0] ?? null;
+    if (!invite) {
+      fail(res, 404, "INVITE_NOT_FOUND", "Invite code not found");
+      return;
+    }
+    if (invite.disabled_at) {
+      fail(res, 410, "INVITE_DISABLED", "Invite code is disabled");
+      return;
+    }
+    if (invite.expires_at && invite.expires_at.getTime() < Date.now()) {
+      fail(res, 410, "INVITE_EXPIRED", "Invite code has expired");
+      return;
+    }
+    if (invite.used_count >= invite.max_uses) {
+      fail(res, 410, "INVITE_EXHAUSTED", "Invite code is fully redeemed");
+      return;
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
 
   try {
+    await pgClient.query("BEGIN");
     const result = await pgClient.query<AuthUser>(
       `
       INSERT INTO users (email, phone, nickname, password_hash)
@@ -518,8 +586,21 @@ app.post("/v1/auth/register", async (req, res) => {
     if (!user) {
       throw new Error("Failed to create user");
     }
+    if (invite) {
+      await pgClient.query(
+        `UPDATE invite_codes SET used_count = used_count + 1 WHERE code = $1`,
+        [invite.code]
+      );
+      await pgClient.query(
+        `INSERT INTO invite_redemptions (invite_code, user_id) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [invite.code, user.id]
+      );
+    }
+    await pgClient.query("COMMIT");
     success(res, user);
   } catch (error) {
+    await pgClient.query("ROLLBACK").catch(() => undefined);
     const message = error instanceof Error ? error.message : "";
     if (message.includes("users_email_key")) {
       fail(res, 409, "CONFLICT", "Email already exists");
@@ -677,13 +758,13 @@ app.get("/v1/auth/me", requireAuth, async (req, res) => {
 app.get("/v1/models", async (_req, res) => {
   try {
     const models = await loadActiveModels();
+    setPublicCache(res, 60);
     success(res, models);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load models";
     fail(res, 500, "INTERNAL_ERROR", message);
   }
 });
-
 app.get("/v1/models/:id", async (req, res) => {
   try {
     const result = await pgClient.query<ModelRegistryRow>(
@@ -931,6 +1012,7 @@ app.get("/v1/prompts", async (req, res) => {
     }
   };
 
+  setPublicCache(res, 30);
   success(res, items, meta as unknown as Record<string, unknown>);
 });
 
@@ -1012,6 +1094,9 @@ app.get("/v1/prompts/:id", async (req, res) => {
     prompt.viewer_collected = false;
   }
 
+  if (!viewer && prompt.status === "approved") {
+    setPublicCache(res, 60);
+  }
   success(res, prompt);
 });
 
@@ -1485,6 +1570,191 @@ app.get("/v1/auth/oauth/:provider/callback", (req, res) => {
     provider: req.params.provider,
     callbackHandled: false,
     message: "OAuth callback is reserved for future integration."
+  });
+});
+
+type TelemetryBody = {
+  kind?: "event" | "error";
+  name?: string;
+  session_id?: string;
+  route?: string;
+  payload?: Record<string, unknown>;
+};
+
+app.post("/v1/telemetry", async (req, res) => {
+  const body = (req.body ?? {}) as TelemetryBody;
+  const kind = body.kind === "error" ? "error" : "event";
+  const name = (body.name ?? "").trim().slice(0, 96);
+  if (!name) {
+    fail(res, 400, "BAD_REQUEST", "Telemetry name is required");
+    return;
+  }
+  const route = (body.route ?? "").trim().slice(0, 255) || null;
+  const sessionId = (body.session_id ?? "").trim().slice(0, 64) || null;
+  const userAgent = (req.headers["user-agent"] ?? "").toString().slice(0, 512) || null;
+  const viewer = await getOptionalUser(req);
+  const payload =
+    body.payload && typeof body.payload === "object" && !Array.isArray(body.payload)
+      ? body.payload
+      : {};
+
+  try {
+    await pgClient.query(
+      `INSERT INTO telemetry_events (kind, name, user_id, session_id, route, payload, user_agent, ip_address)
+       VALUES ($1::telemetry_kind, $2, $3, $4, $5, $6::JSONB, $7, $8)`,
+      [
+        kind,
+        name,
+        viewer?.id ?? null,
+        sessionId,
+        route,
+        JSON.stringify(payload),
+        userAgent,
+        getClientIp(req)
+      ]
+    );
+    if (kind === "error") {
+      console.warn(`[telemetry] error ${name} @ ${route ?? "?"}`, payload);
+    }
+    res.status(202).json({ data: { accepted: true } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to log event";
+    console.warn("[telemetry] insert failed:", message);
+    res.status(202).json({ data: { accepted: false } });
+  }
+});
+
+app.get(
+  "/v1/admin/telemetry/summary",
+  requireRole("admin", "moderator"),
+  async (_req, res) => {
+    const result = await pgClient.query<{
+      kind: "event" | "error";
+      name: string;
+      count: string;
+    }>(
+      `SELECT kind, name, COUNT(*)::TEXT AS count
+       FROM telemetry_events
+       WHERE occurred_at > NOW() - INTERVAL '7 days'
+       GROUP BY kind, name
+       ORDER BY COUNT(*) DESC
+       LIMIT 50`
+    );
+    success(res, result.rows.map((row) => ({ ...row, count: Number(row.count) })));
+  }
+);
+
+function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "DP-";
+  for (let i = 0; i < 8; i += 1) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)] ?? "X";
+  }
+  return out;
+}
+
+app.post(
+  "/v1/invites",
+  requireRole("admin", "moderator"),
+  async (req, res) => {
+    const body = (req.body ?? {}) as {
+      max_uses?: number;
+      expires_in_days?: number;
+      note?: string;
+    };
+    const maxUses = Number.isFinite(body.max_uses)
+      ? Math.min(1000, Math.max(1, Math.floor(body.max_uses!)))
+      : 1;
+    const expiresAt =
+      Number.isFinite(body.expires_in_days) && body.expires_in_days! > 0
+        ? new Date(Date.now() + body.expires_in_days! * 24 * 60 * 60 * 1000)
+        : null;
+    const note = (body.note ?? "").trim().slice(0, 255) || null;
+    const code = generateInviteCode();
+    const user = (req as AuthedRequest).user;
+    const result = await pgClient.query<{
+      code: string;
+      max_uses: number;
+      used_count: number;
+      note: string | null;
+      expires_at: Date | null;
+      created_at: Date;
+    }>(
+      `INSERT INTO invite_codes (code, created_by, max_uses, note, expires_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING code, max_uses, used_count, note, expires_at, created_at`,
+      [code, user.id, maxUses, note, expiresAt]
+    );
+    const row = result.rows[0]!;
+    success(res, {
+      code: row.code,
+      max_uses: row.max_uses,
+      used_count: row.used_count,
+      note: row.note,
+      expires_at: row.expires_at ? row.expires_at.toISOString() : null,
+      created_at: row.created_at.toISOString()
+    });
+  }
+);
+
+app.get(
+  "/v1/invites",
+  requireRole("admin", "moderator"),
+  async (_req, res) => {
+    const result = await pgClient.query<{
+      code: string;
+      max_uses: number;
+      used_count: number;
+      note: string | null;
+      expires_at: Date | null;
+      disabled_at: Date | null;
+      created_at: Date;
+    }>(
+      `SELECT code, max_uses, used_count, note, expires_at, disabled_at, created_at
+       FROM invite_codes ORDER BY created_at DESC LIMIT 100`
+    );
+    success(
+      res,
+      result.rows.map((row) => ({
+        code: row.code,
+        max_uses: row.max_uses,
+        used_count: row.used_count,
+        note: row.note,
+        expires_at: row.expires_at ? row.expires_at.toISOString() : null,
+        disabled_at: row.disabled_at ? row.disabled_at.toISOString() : null,
+        created_at: row.created_at.toISOString()
+      }))
+    );
+  }
+);
+
+app.get("/v1/invites/:code/check", async (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const result = await pgClient.query<{
+    code: string;
+    max_uses: number;
+    used_count: number;
+    expires_at: Date | null;
+    disabled_at: Date | null;
+  }>(
+    `SELECT code, max_uses, used_count, expires_at, disabled_at
+     FROM invite_codes WHERE code = $1 LIMIT 1`,
+    [code]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    fail(res, 404, "INVITE_NOT_FOUND", "Invite code not found");
+    return;
+  }
+  const expired =
+    !!row.disabled_at ||
+    (row.expires_at !== null && row.expires_at.getTime() < Date.now()) ||
+    row.used_count >= row.max_uses;
+  success(res, {
+    code: row.code,
+    valid: !expired,
+    remaining: Math.max(0, row.max_uses - row.used_count),
+    expires_at: row.expires_at ? row.expires_at.toISOString() : null
   });
 });
 

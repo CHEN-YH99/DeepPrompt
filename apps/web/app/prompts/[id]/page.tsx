@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { InteractionBar } from "@/components/interaction-bar";
 import { PromptGallery } from "@/components/prompt-gallery";
 import { Shell } from "@/components/shell";
@@ -22,6 +23,40 @@ type PromptDetailPageProps = {
 };
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: PromptDetailPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const prompt = await fetchPromptRecordById(id).catch(() => null);
+  const dict = getDictionary();
+  if (!prompt) {
+    return {
+      title: dict.common.brand,
+      description: dict.home.heroLede,
+      robots: { index: false, follow: false }
+    };
+  }
+  const description = prompt.excerpt?.trim() || prompt.promptText.slice(0, 160);
+  const ogImage = prompt.images[0]?.url ?? prompt.cover;
+  return {
+    title: prompt.title,
+    description,
+    openGraph: {
+      type: "article",
+      title: prompt.title,
+      description,
+      images: ogImage ? [{ url: ogImage, width: 1200, height: 630 }] : undefined
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: prompt.title,
+      description,
+      images: ogImage ? [ogImage] : undefined
+    },
+    alternates: {
+      canonical: `/prompts/${prompt.id}`
+    }
+  };
+}
 
 export default async function PromptDetailPage({
   params,
@@ -57,9 +92,39 @@ export default async function PromptDetailPage({
 
   const createdMessage = resolvedSearchParams?.created === "1" ? dict.detail.createdNotice : "";
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    "@id": `/prompts/${prompt.id}`,
+    name: prompt.title,
+    description: prompt.excerpt || prompt.promptText.slice(0, 220),
+    abstract: prompt.promptText.slice(0, 500),
+    keywords: [...prompt.styleTags, ...prompt.usageTags, ...prompt.colorTags].join(", "),
+    image: prompt.images.map((image) => image.url).filter(Boolean),
+    author: { "@type": "Person", name: prompt.author },
+    datePublished: prompt.createdAt,
+    interactionStatistic: [
+      {
+        "@type": "InteractionCounter",
+        interactionType: "https://schema.org/LikeAction",
+        userInteractionCount: prompt.likes
+      },
+      {
+        "@type": "InteractionCounter",
+        interactionType: "https://schema.org/BookmarkAction",
+        userInteractionCount: prompt.collects
+      }
+    ]
+  };
+
   return (
     <Shell activePath="">
       <main className="shell">
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <section className="page-grid">
           <div className="section" data-unit="UNIT / DETAIL-01">
             <div className="eyebrow">{applyVars(dict.detail.promptKicker, { id: prompt.id })}</div>

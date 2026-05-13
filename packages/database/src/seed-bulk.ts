@@ -8,20 +8,14 @@ import { Client } from "pg";
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFile);
 const rootEnvPath = path.resolve(currentDir, "../../../.env");
-const schemaPath = path.resolve(currentDir, "schema.sql");
-const gate5SchemaPath = path.resolve(currentDir, "schema-gate5.sql");
-const seedPath = path.resolve(currentDir, "seed.sql");
-const schemaSql = fs.readFileSync(schemaPath, "utf8");
-const gate5SchemaSql = fs.existsSync(gate5SchemaPath)
-  ? fs.readFileSync(gate5SchemaPath, "utf8")
-  : "";
-const seedSql = fs.readFileSync(seedPath, "utf8");
+const featuredSeedPath = path.resolve(currentDir, "seed-prompts.sql");
+const bulkSeedPath = path.resolve(currentDir, "seed-prompts-bulk.sql");
 
 dotenv.config({ path: rootEnvPath });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to run migrations.");
+  throw new Error("DATABASE_URL is required to run bulk seed.");
 }
 
 async function run() {
@@ -29,13 +23,12 @@ async function run() {
   await client.connect();
   try {
     await client.query("BEGIN");
-    await client.query(schemaSql);
-    if (gate5SchemaSql.trim().length > 0) {
-      await client.query(gate5SchemaSql);
+    if (fs.existsSync(featuredSeedPath)) {
+      await client.query(fs.readFileSync(featuredSeedPath, "utf8"));
     }
-    await client.query(seedSql);
+    await client.query(fs.readFileSync(bulkSeedPath, "utf8"));
     await client.query("COMMIT");
-    console.log("[database] migration + seed complete");
+    console.log("[database] bulk seed complete (featured + 512 cold-start prompts)");
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -45,6 +38,6 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error("[database] migration failed", error);
+  console.error("[database] bulk seed failed", error);
   process.exit(1);
 });

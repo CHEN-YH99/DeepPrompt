@@ -483,7 +483,9 @@ function buildPromptListSearchParams(query?: PromptSearchQuery) {
 
 export async function fetchModels(): Promise<ModelRecord[]> {
   try {
-    const response = await fetch(`${apiBaseUrl}/v1/models`, { cache: "no-store" });
+    const response = await fetch(`${apiBaseUrl}/v1/models`, {
+      next: { revalidate: 120, tags: ["models:list"] }
+    });
     if (!response.ok) {
       return models;
     }
@@ -512,7 +514,7 @@ export async function fetchPromptRecords(query?: PromptSearchQuery): Promise<Pro
   try {
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`, {
-      cache: "no-store"
+      next: { revalidate: 30, tags: ["prompts:list"] }
     });
     if (!response.ok) {
       return fallbackPromptRecords(query);
