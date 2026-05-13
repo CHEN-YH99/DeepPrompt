@@ -125,7 +125,6 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                   data-active={tab === key}
                   href={key === "all" ? "/me/prompts" : `/me/prompts?status=${key}`}
                   key={key}
-                  onClick={() => { /* 切换状态 tab 时重置到第1页 */ }}
                 >
                   {tabLabelMap[key]}
                 </Link>
