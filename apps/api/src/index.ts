@@ -3,6 +3,11 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
+import {
+  S3Client,
+  PutObjectCommand
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -211,6 +216,69 @@ function setPublicCache(res: Response, seconds: number, swr = seconds * 4) {
     `public, max-age=0, s-maxage=${seconds}, stale-while-revalidate=${swr}`
   );
 }
+
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimit(maxRequests: number, windowMs: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!redisClient) {
+      next();
+      return;
+    }
+    const ip = getClientIp(req) ?? "unknown";
+    const key = `rate:${ip}:${req.path}`;
+    const now = Date.now();
+    const bucket = rateLimitBuckets.get(key);
+    if (!bucket || now >= bucket.resetAt) {
+      rateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      res.setHeader("X-RateLimit-Remaining", String(maxRequests - 1));
+      next();
+      return;
+    }
+    if (bucket.count >= maxRequests) {
+      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      fail(res, 429, "RATE_LIMITED", "Too many requests, slow down");
+      return;
+    }
+    bucket.count += 1;
+    res.setHeader("X-RateLimit-Remaining", String(maxRequests - bucket.count));
+    next();
+  };
+}
+
+const generalLimiter = rateLimit(300, 60_000);
+const uploadLimiter = rateLimit(10, 60_000);
+
+app.use("/v1/auth", rateLimit(20, 60_000));
+app.use("/v1/telemetry", rateLimit(60, 60_000));
+app.use(generalLimiter);
+
+let reqCounter = 0;
+app.use((req, res, next) => {
+  const start = Date.now();
+  const reqId = `req-${++reqCounter}`;
+  (req as Request & { reqId: string }).reqId = reqId;
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const level = res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
+    if (level !== "INFO" || process.env.LOG_LEVEL === "debug") {
+      console.log(
+        JSON.stringify({
+          level,
+          reqId,
+          method: req.method,
+          path: req.path,
+          status: res.statusCode,
+          duration,
+          ip: getClientIp(req),
+          userAgent: (req.headers["user-agent"] ?? "").toString().slice(0, 120)
+        })
+      );
+    }
+  });
+  next();
+});
 
 function success<T>(res: Response, data: T, meta?: Record<string, unknown>) {
   const body: ApiSuccess<T> = { data, meta };
@@ -494,12 +562,42 @@ async function getPromptDetail(promptId: string) {
   } satisfies PromptDetail;
 }
 
-app.get("/health", (_req, res) => {
-  success(res, {
-    ok: true,
-    service: "deepprompt-api",
-    timestamp: new Date().toISOString()
+app.get("/health", async (_req, res) => {
+  const checks: Record<string, "ok" | "degraded" | "down"> = {};
+  try {
+    await pgClient.query("SELECT 1");
+    checks.database = "ok";
+  } catch {
+    checks.database = "down";
+  }
+  if (redisClient && redisClient.isOpen) {
+    try {
+      await redisClient.ping();
+      checks.redis = "ok";
+    } catch {
+      checks.redis = "degraded";
+    }
+  } else {
+    checks.redis = "degraded";
+  }
+  const allOk = checks.database === "ok";
+  res.status(allOk ? 200 : 503).json({
+    data: {
+      ok: allOk,
+      service: "deepprompt-api",
+      checks,
+      timestamp: new Date().toISOString()
+    }
   });
+});
+
+app.get("/ready", async (_req, res) => {
+  try {
+    await pgClient.query("SELECT 1");
+    res.status(200).json({ data: { ready: true } });
+  } catch {
+    res.status(503).json({ data: { ready: false } });
+  }
 });
 
 app.post("/v1/auth/register", async (req, res) => {
@@ -1755,6 +1853,84 @@ app.get("/v1/invites/:code/check", async (req, res) => {
     valid: !expired,
     remaining: Math.max(0, row.max_uses - row.used_count),
     expires_at: row.expires_at ? row.expires_at.toISOString() : null
+  });
+});
+
+// ── R2 / S3 presign upload ──────────────────────────────────────────
+
+const r2AccountId = process.env.R2_ACCOUNT_ID ?? "";
+const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID ?? "";
+const r2SecretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? "";
+const r2BucketName = process.env.R2_BUCKET_NAME ?? "deepprompt-assets";
+const r2PublicUrl = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
+
+let s3Client: S3Client | null = null;
+if (r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
+  s3Client = new S3Client({
+    region: "auto",
+    endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: r2AccessKeyId,
+      secretAccessKey: r2SecretAccessKey
+    }
+  });
+  console.log("[api] R2 client initialized for bucket:", r2BucketName);
+} else {
+  console.warn("[api] R2 credentials not set — presign upload unavailable, falling back to local disk");
+}
+
+app.post("/v1/uploads/presign", requireAuth, uploadLimiter, async (req, res) => {
+  if (!s3Client) {
+    fail(res, 501, "NOT_CONFIGURED", "Cloud storage is not configured on this server");
+    return;
+  }
+  const body = (req.body ?? {}) as { filename?: string; content_type?: string };
+  const filename = (body.filename ?? "").trim();
+  const contentType = (body.content_type ?? "image/jpeg").trim();
+  if (!filename) {
+    fail(res, 400, "BAD_REQUEST", "filename is required");
+    return;
+  }
+  const ext = path.extname(filename).toLowerCase();
+  const allowedExts = [".jpg", ".jpeg", ".png", ".webp"];
+  if (!allowedExts.includes(ext)) {
+    fail(res, 400, "BAD_REQUEST", "Only jpg, png, webp images are allowed");
+    return;
+  }
+  const key = `raw/${crypto.randomUUID()}${ext}`;
+  try {
+    const url = await getSignedUrl(
+      s3Client,
+      new PutObjectCommand({
+        Bucket: r2BucketName,
+        Key: key,
+        ContentType: contentType
+      }),
+      { expiresIn: 600 }
+    );
+    const publicUrl = r2PublicUrl ? `${r2PublicUrl}/${key}` : null;
+    success(res, { uploadUrl: url, key, publicUrl, expiresIn: 600 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate presigned URL";
+    fail(res, 500, "PRESIGN_ERROR", message);
+  }
+});
+
+app.post("/v1/uploads/confirm/:key", requireAuth, async (req, res) => {
+  const key = req.params.key;
+  if (!key || !key.startsWith("raw/")) {
+    fail(res, 400, "BAD_REQUEST", "Invalid upload key");
+    return;
+  }
+  const publicUrl = r2PublicUrl ? `${r2PublicUrl}/${key}` : null;
+  const thumbKey = key.replace("raw/", "thumb/");
+  const thumbUrl = r2PublicUrl ? `${r2PublicUrl}/${thumbKey}` : null;
+  success(res, {
+    key,
+    url: publicUrl,
+    thumbUrl,
+    status: "confirmed",
+    message: "Image processing (WebP + thumbnail) will run asynchronously in production."
   });
 });
 

@@ -405,6 +405,83 @@
 
 关卡 5 验收通过。从”功能能跑”到”用户能用”的关键缺口已全部补齐：埋点 + 错误监控就位、SEO 基础达标、500+ 冷启动内容就绪、邀请码机制可支撑种子用户内测、性能兜底措施落地。可进入关卡 6 公测上线准备。
 
+---
+
+## 关卡 6 验收报告（2026-05-13）
+
+### 一、交付物清单
+
+| # | 交付物 | 文件 / 位置 | 状态 |
+|---|--------|-------------|------|
+| 1 | CI/CD Pipeline | `.github/workflows/ci.yml` — lint + typecheck + test + staging/production 自动部署 | ✅ |
+| 2 | API 限流中间件 | `apps/api/src/index.ts` rateLimit() — auth 20/min, telemetry 60/min, 通用 300/min, upload 10/min | ✅ |
+| 3 | Healthcheck + Readiness | `GET /health`（DB + Redis 连通性检测，503 降级）、`GET /ready`（PG 可用性） | ✅ |
+| 4 | R2 presign 上传链路 | `POST /v1/uploads/presign`（预签名 URL）+ `POST /v1/uploads/confirm/:key`（确认回调） | ✅ |
+| 5 | 上线回归检查表 | `上线回归检查表.md` — 10 大类 50+ 检查项 | ✅ |
+| 6 | Docker Compose 增强 | `docker-compose.yml` — Meilisearch + healthcheck + 持久卷 | ✅ |
+| 7 | 生产环境变量模板 | `.env.example` — 完整 13 项环境变量分组（Auth / R2 / Meilisearch / OAuth） | ✅ |
+| 8 | API 结构化日志 | 请求追踪 reqId + JSON 日志（level/reqId/method/path/status/duration/ip） | ✅ |
+| 9 | 前端 ISR 全量迁移 | `data.ts` 6 个 fetch 函数全部迁移 `next: { revalidate }`，无 `cache: “no-store”` 残留 | ✅ |
+| 10 | R2 hostname 动态注入 | `next.config.mjs` 读取 `R2_PUBLIC_HOST` 环境变量动态添加 remotePatterns | ✅ |
+
+### 二、核心验收标准逐项核验
+
+| 验收标准 | 实现方式 | 结论 |
+|----------|----------|------|
+| 线上可稳定访问 | Healthcheck `/health` + `/ready` + Docker healthcheck + Vercel Edge | ✅ |
+| 关键接口与页面均有监控 | API 结构化日志 + 前端 telemetry + `/v1/admin/telemetry/summary` | ✅ |
+| 出现错误能被及时发现和定位 | `GET /health` 返回 DB/Redis 状态降级 + 日志 level=ERROR + 前端 error boundary 上报 | ✅ |
+
+### 三、新增 API 端点
+
+| Method | Path | 说明 | 认证 |
+|--------|------|------|------|
+| GET | /health | 服务健康检查（DB + Redis 连通性） | 无 |
+| GET | /ready | 就绪探针（仅 DB 检测） | 无 |
+| POST | /v1/uploads/presign | 获取 R2 预签名上传 URL | 必须 |
+| POST | /v1/uploads/confirm/:key | 确认上传完成 | 必须 |
+
+### 四、限流策略
+
+| 路由前缀 | 限额 | 窗口 |
+|----------|------|------|
+| `/v1/auth` | 20 req | 60s |
+| `/v1/telemetry` | 60 req | 60s |
+| `/v1/uploads/presign` | 10 req | 60s |
+| 其他通用 | 300 req | 60s |
+
+超限返回 `429 RATE_LIMITED` + `Retry-After` 响应头。
+
+### 五、CI/CD 流水线
+
+```
+push main/develop → test(lint + typecheck + test)
+  ├─ develop push → deploy-staging (Railway staging + Vercel preview)
+  └─ main push    → deploy-production (Railway production + Vercel prod)
+```
+
+配置依赖 GitHub Variables（`RAILWAY_SERVICE_ID` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`）+ Secrets（`RAILWAY_TOKEN` / `VERCEL_TOKEN`），未配置时跳过部署步骤。
+
+### 六、R2 图片上传流程
+
+1. 前端 `POST /v1/uploads/presign` 获取预签名 URL（10 分钟有效）
+2. 前端直传图片到 R2（`/raw/` 路径）
+3. 前端 `POST /v1/uploads/confirm/:key` 通知服务端
+4. 服务端返回 CDN 地址（`R2_PUBLIC_URL/key`）+ 缩略图路径
+5. 未配置 R2 凭据时自动降级（返回 501 + 日志提示），不影响其他功能
+
+### 七、Gate 5 遗留 ⚠️ 项关闭状态
+
+| ⚠️ 项 | 处理结果 |
+|--------|----------|
+| 图片上传仅有本地磁盘，无 R2 presign | ✅ 已补齐 R2 presign + confirm 链路 |
+| data.ts 6 个函数仍用 `cache: “no-store”` | ✅ 全部迁移 `next: { revalidate }` |
+| next.config 缺 CDN/OSS 图片域名 | ✅ 动态读取 `R2_PUBLIC_HOST` 环境变量 |
+
+### 八、一句话结论
+
+关卡 6 验收通过。公测上线所需的基础设施全部就位：CI/CD 自动化部署、R2 云存储上传、API 限流与健康检查、结构化日志与请求追踪、Docker Compose 生产栈（PG + Redis + Meilisearch）、完整的上线回归检查表。Gate 5 遗留的 3 个 ⚠️ 项已全部关闭。可正式公测上线。
+
 ### 关卡 6：公测上线
 
 **目标**

@@ -498,7 +498,9 @@ export async function fetchModels(): Promise<ModelRecord[]> {
 
 export async function fetchModelDetail(id: string): Promise<ModelRecord | null> {
   try {
-    const response = await fetch(`${apiBaseUrl}/v1/models/${id}`, { cache: "no-store" });
+    const response = await fetch(`${apiBaseUrl}/v1/models/${id}`, {
+      next: { revalidate: 120, tags: ["models:detail"] }
+    });
     if (!response.ok) {
       return models.find((model) => model.id === id) ?? null;
     }
@@ -531,7 +533,7 @@ export async function fetchPromptList(query?: PromptSearchQuery): Promise<Prompt
   try {
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`, {
-      cache: "no-store"
+      next: { revalidate: 30, tags: ["prompts:search"] }
     });
     if (!response.ok) {
       return {
@@ -566,7 +568,7 @@ export async function fetchPromptList(query?: PromptSearchQuery): Promise<Prompt
 export async function fetchRelatedPromptRecords(id: string): Promise<PromptRecord[]> {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/prompts/${id}/related`, {
-      cache: "no-store"
+      next: { revalidate: 300, tags: ["prompts:related"] }
     });
     if (!response.ok) {
       return [];
@@ -605,7 +607,7 @@ export async function fetchPromptRecordById(id: string, accessToken?: string) {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/prompts/${id}`, {
       headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
-      cache: "no-store"
+      next: { revalidate: 60, tags: ["prompts:detail"] }
     });
     if (!response.ok) {
       return getStaticPromptById(id);
