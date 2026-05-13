@@ -1122,12 +1122,23 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).user;
   const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
   const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
-  const params: unknown[] = [user.id];
-  const conditions = ["p.author_id = $1"];
+  const isPrivileged = user.role === "admin" || user.role === "moderator";
+  const params: unknown[] = [];
+  const conditions: string[] = [];
+
+  // 管理员/审核员视角：/me/prompts 充当全量后台列表（含发布者列、审核动作），
+  // 因此不按 author 过滤，便于看到所有用户提交的作品。普通用户继续只看自己。
+  if (!isPrivileged) {
+    params.push(user.id);
+    conditions.push(`p.author_id = $${params.length}`);
+  }
+
   if (allowedStatuses.includes(statusFilter as PromptStatus)) {
     params.push(statusFilter);
     conditions.push(`p.status = $${params.length}::prompt_status`);
   }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await pgClient.query<PromptListRow>(
     `
@@ -1155,7 +1166,7 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
       ) AS cover_url
     FROM prompts p
     JOIN users u ON u.id = p.author_id
-    WHERE ${conditions.join(" AND ")}
+    ${whereClause}
     ORDER BY p.created_at DESC
     LIMIT 100
     `,

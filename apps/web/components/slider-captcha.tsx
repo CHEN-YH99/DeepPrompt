@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type SliderCaptchaProps = {
   label: string;
@@ -12,9 +12,17 @@ export function SliderCaptcha({ label, successLabel, onVerified }: SliderCaptcha
   const [offset, setOffset] = useState(0);
   const [verified, setVerified] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [hinting, setHinting] = useState(true);
   const startXRef = useRef(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
+
+  // 挂载后播放一次"先右滑示意，再回弹"的引导动画，提示用户操作方向。
+  // 用户一旦真的开始拖动就立即停掉。
+  useEffect(() => {
+    const stopTimer = setTimeout(() => setHinting(false), 2400);
+    return () => clearTimeout(stopTimer);
+  }, []);
 
   const getMaxOffset = useCallback(() => {
     if (!trackRef.current || !thumbRef.current) return 200;
@@ -25,6 +33,7 @@ export function SliderCaptcha({ label, successLabel, onVerified }: SliderCaptcha
     (e: React.PointerEvent) => {
       if (verified) return;
       e.preventDefault();
+      setHinting(false);
       setDragging(true);
       startXRef.current = e.clientX - offset;
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -59,8 +68,11 @@ export function SliderCaptcha({ label, successLabel, onVerified }: SliderCaptcha
     <div
       className="captcha-track"
       data-verified={verified}
+      data-dragging={dragging}
+      data-hinting={hinting && !dragging && !verified}
       ref={trackRef}
     >
+      <div className="captcha-fill" style={{ width: `${offset + 44}px` }} />
       <span className="captcha-label">{verified ? successLabel : label}</span>
       <div
         className="captcha-thumb"
@@ -68,7 +80,7 @@ export function SliderCaptcha({ label, successLabel, onVerified }: SliderCaptcha
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         ref={thumbRef}
-        style={{ transform: `translateX(${offset}px)` }}
+        style={{ transform: dragging || verified ? `translateX(${offset}px)` : undefined }}
       >
         {verified ? "✓" : "→"}
       </div>

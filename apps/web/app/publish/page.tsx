@@ -7,6 +7,7 @@ import { getDictionary } from "@/lib/i18n";
 type PublishPageProps = {
   searchParams?: Promise<{
     error?: string;
+    detail?: string;
   }>;
 };
 
@@ -24,6 +25,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = getPublishErrorMessage(resolvedSearchParams?.error);
+  const errorDetail = resolvedSearchParams?.detail?.trim() ?? "";
   const models = await fetchModels();
   const firstModel = models[0] ?? defaultModel;
 
@@ -88,6 +90,11 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                 }}
               >
                 {errorMessage}
+                {errorDetail ? (
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
+                    {errorDetail}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <div className="form-grid" style={{ marginTop: 18 }}>
