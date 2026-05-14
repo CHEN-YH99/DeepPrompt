@@ -95,6 +95,8 @@ export type Dictionary = {
     resultTitle: string;
     resultStat: string;
     emptyHint: string;
+    expandMore: string;
+    collapseLess: string;
   };
   models: {
     indexKicker: string;
@@ -181,6 +183,7 @@ export type Dictionary = {
     errorApiUnreachable: string;
     errorUploadFailed: string;
     errorPublishFailed: string;
+    tagMaxHint: string;
   };
   detail: {
     promptKicker: string;
@@ -469,7 +472,9 @@ const zhCN: Dictionary = {
     resultEyebrow: "[ 结果列表 ]",
     resultTitle: "匹配档案",
     resultStat: "排序 / {sort} · 共 {total} 条 · 耗时 {took} 毫秒",
-    emptyHint: "没有匹配的提示词，先放宽筛选条件再继续探索。"
+    emptyHint: "没有匹配的提示词，先放宽筛选条件再继续探索。",
+    expandMore: "展开更多",
+    collapseLess: "收起"
   },
   models: {
     indexKicker: "[ 模型注册表 · 已激活舰队 ]",
@@ -560,7 +565,8 @@ const zhCN: Dictionary = {
     errorInvalidPayload: "标题至少 4 字、提示词至少 12 字，模型和图片（文件或链接）不能为空。",
     errorApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
     errorUploadFailed: "图片上传失败，请检查文件格式、数量或大小后重试。",
-    errorPublishFailed: "发布失败，请检查字段后重试。"
+    errorPublishFailed: "发布失败，请检查字段后重试。",
+    tagMaxHint: "每类最多选择 5 个标签"
   },
   detail: {
     promptKicker: "[ 提示词档案 · {id} ]",
@@ -855,7 +861,9 @@ const enUS: Dictionary = {
     resultEyebrow: "[ RESULT FEED ]",
     resultTitle: "MATCHED DOSSIERS",
     resultStat: "SORT / {sort} / {total} HITS / {took}MS",
-    emptyHint: "No matching prompts. Relax your filters and try again."
+    emptyHint: "No matching prompts. Relax your filters and try again.",
+    expandMore: "EXPAND MORE",
+    collapseLess: "COLLAPSE"
   },
   models: {
     indexKicker: "[ MODEL REGISTRY / ACTIVE FLEET ]",
@@ -948,7 +956,8 @@ const enUS: Dictionary = {
       "Title (4+ chars), prompt text (12+ chars), model, and either an image file or a fallback URL are required.",
     errorApiUnreachable: "API service is unreachable. Make sure the API is running.",
     errorUploadFailed: "Image upload failed. Check format, count and size, then retry.",
-    errorPublishFailed: "Publish failed. Verify the fields and retry."
+    errorPublishFailed: "Publish failed. Verify the fields and retry.",
+    tagMaxHint: "MAX 5 TAGS PER CATEGORY"
   },
   detail: {
     promptKicker: "[ PROMPT DOSSIER / {id} ]",

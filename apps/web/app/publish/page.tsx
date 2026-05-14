@@ -1,8 +1,10 @@
 import { PublishForm } from "@/components/publish-form";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
+import { TagPicker } from "@/components/tag-picker";
 import { defaultModel, fetchModels } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
+import { STYLE_OPTIONS, COLOR_OPTIONS, USAGE_OPTIONS } from "@/lib/tag-options";
 
 type PublishPageProps = {
   searchParams?: Promise<{
@@ -158,24 +160,28 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     }}
                   />
                   <div className="form-stack" style={{ marginTop: 18 }}>
-                    <div className="field">
-                      <label className="field-label" htmlFor="style-tags">
-                        {dict.publish.styleTags}
-                      </label>
-                      <input defaultValue="" id="style-tags" name="style_tags" required />
-                    </div>
-                    <div className="field">
-                      <label className="field-label" htmlFor="usage-tags">
-                        {dict.publish.usageTags}
-                      </label>
-                      <input defaultValue="" id="usage-tags" name="usage_tags" />
-                    </div>
-                    <div className="field">
-                      <label className="field-label" htmlFor="color-tags">
-                        {dict.publish.colorTags}
-                      </label>
-                      <input defaultValue="" id="color-tags" name="color_tags" />
-                    </div>
+                    <TagPicker
+                      label={dict.publish.styleTags}
+                      name="style_tags"
+                      options={STYLE_OPTIONS}
+                      max={5}
+                      required
+                      maxHintLabel={dict.publish.tagMaxHint}
+                    />
+                    <TagPicker
+                      label={dict.publish.usageTags}
+                      name="usage_tags"
+                      options={USAGE_OPTIONS}
+                      max={5}
+                      maxHintLabel={dict.publish.tagMaxHint}
+                    />
+                    <TagPicker
+                      label={dict.publish.colorTags}
+                      name="color_tags"
+                      options={COLOR_OPTIONS}
+                      max={5}
+                      maxHintLabel={dict.publish.tagMaxHint}
+                    />
                     <div className="field">
                       <label className="field-label" htmlFor="images">
                         {dict.publish.imageFiles}

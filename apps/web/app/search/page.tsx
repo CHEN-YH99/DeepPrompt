@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PromptCard } from "@/components/prompt-card";
+import { CollapsibleCheckboxGroup } from "@/components/collapsible-checkbox-group";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import {
@@ -10,30 +11,12 @@ import {
   searchHotTerms
 } from "@/lib/data";
 import { getDictionary, applyVars } from "@/lib/i18n";
+import { STYLE_OPTIONS, COLOR_OPTIONS, USAGE_OPTIONS } from "@/lib/tag-options";
 import type { SearchSort } from "@deepprompt/types";
 
 type SearchPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const STYLE_OPTIONS = [
-  "REALISM",
-  "CYBERPUNK",
-  "ANIME",
-  "MINIMAL",
-  "EDITORIAL",
-  "INTERIOR",
-  "PRODUCT",
-  "BRUTALIST",
-  "STUDIO",
-  "FILM GRAIN",
-  "DENSE UI",
-  "TERMINAL"
-];
-
-const COLOR_OPTIONS = ["COLD", "WARM", "MONO", "BLACK", "WHITE", "RED", "GREEN", "RED SHIFT"];
-
-const USAGE_OPTIONS = ["PORTRAIT", "LANDSCAPE", "PRODUCT", "UI", "CONCEPT ART", "AD", "COVER", "KEY VISUAL"];
 
 function pickList(value: string | string[] | undefined): string[] {
   if (!value) {
@@ -198,74 +181,47 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 </div>
               </div>
 
-              <div className="field">
-                <div className="field-label">{dict.search.styleTags}</div>
-                <div className="checkbox-grid">
-                  {styleOptions.slice(0, 10).map((option) => {
-                    const bucket = facets?.styleTags.find((item) => item.value === option);
-                    return (
-                      <label className="checkbox-item" key={option}>
-                        <input
-                          defaultChecked={selectedStyleTags.includes(option)}
-                          name="style_tags"
-                          type="checkbox"
-                          value={option}
-                        />
-                        <span>
-                          {option}
-                          {bucket ? ` (${bucket.count})` : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <CollapsibleCheckboxGroup
+                label={dict.search.styleTags}
+                name="style_tags"
+                items={styleOptions.map((option) => ({
+                  value: option,
+                  label: option,
+                  count: facets?.styleTags.find((item) => item.value === option)?.count
+                }))}
+                defaultChecked={selectedStyleTags}
+                initialVisible={3}
+                expandLabel={dict.search.expandMore}
+                collapseLabel={dict.search.collapseLess}
+              />
 
-              <div className="field">
-                <div className="field-label">{dict.search.colorTags}</div>
-                <div className="checkbox-grid">
-                  {colorOptions.slice(0, 8).map((option) => {
-                    const bucket = facets?.colorTags.find((item) => item.value === option);
-                    return (
-                      <label className="checkbox-item" key={option}>
-                        <input
-                          defaultChecked={selectedColorTags.includes(option)}
-                          name="color_tags"
-                          type="checkbox"
-                          value={option}
-                        />
-                        <span>
-                          {option}
-                          {bucket ? ` (${bucket.count})` : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <CollapsibleCheckboxGroup
+                label={dict.search.colorTags}
+                name="color_tags"
+                items={colorOptions.map((option) => ({
+                  value: option,
+                  label: option,
+                  count: facets?.colorTags.find((item) => item.value === option)?.count
+                }))}
+                defaultChecked={selectedColorTags}
+                initialVisible={3}
+                expandLabel={dict.search.expandMore}
+                collapseLabel={dict.search.collapseLess}
+              />
 
-              <div className="field">
-                <div className="field-label">{dict.search.usageScene}</div>
-                <div className="checkbox-grid">
-                  {usageOptions.slice(0, 8).map((option) => {
-                    const bucket = facets?.usageTags.find((item) => item.value === option);
-                    return (
-                      <label className="checkbox-item" key={option}>
-                        <input
-                          defaultChecked={selectedUsageTags.includes(option)}
-                          name="usage_tags"
-                          type="checkbox"
-                          value={option}
-                        />
-                        <span>
-                          {option}
-                          {bucket ? ` (${bucket.count})` : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <CollapsibleCheckboxGroup
+                label={dict.search.usageScene}
+                name="usage_tags"
+                items={usageOptions.map((option) => ({
+                  value: option,
+                  label: option,
+                  count: facets?.usageTags.find((item) => item.value === option)?.count
+                }))}
+                defaultChecked={selectedUsageTags}
+                initialVisible={3}
+                expandLabel={dict.search.expandMore}
+                collapseLabel={dict.search.collapseLess}
+              />
 
               <div className="field">
                 <label className="field-label" htmlFor="sort">

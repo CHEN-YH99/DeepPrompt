@@ -908,6 +908,39 @@ img {
   background: rgba(253, 164, 175, 0.08);
 }
 
+.checkbox-item.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.collapsible-body {
+  overflow: hidden;
+  max-height: 200px;
+  transition: max-height 250ms ease-out;
+}
+
+.collapsible-body[data-expanded="true"] {
+  max-height: 2000px;
+  transition: max-height 400ms ease-in;
+}
+
+.micro-action {
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.micro-action:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
 .dynamic-params-grid {
   display: grid;
   gap: 12px;
