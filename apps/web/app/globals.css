@@ -217,7 +217,6 @@ img {
 .stats-grid,
 .info-grid,
 .panel-grid,
-.prompt-grid,
 .form-grid,
 .matrix-grid,
 .detail-grid,
@@ -238,7 +237,13 @@ img {
 }
 
 .prompt-grid {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  columns: 3 280px;
+  column-gap: 1px;
+}
+
+.prompt-grid > * {
+  break-inside: avoid;
+  margin-bottom: 1px;
 }
 
 .matrix-grid {
@@ -398,21 +403,21 @@ img {
 
 .prompt-card {
   display: grid;
-  gap: 16px;
+  gap: 12px;
+  padding: 0 14px 14px;
+  background: var(--panel-2);
 }
 
 .prompt-thumb {
   position: relative;
-  min-height: 220px;
   overflow: hidden;
-  border: 1px solid var(--line);
   background: #070707;
 }
 
 .prompt-thumb img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  display: block;
   filter: contrast(1.05);
 }
 
@@ -448,6 +453,7 @@ img {
 }
 
 .prompt-card-link {
+  display: block;
   text-decoration: none;
   color: inherit;
 }
@@ -1086,7 +1092,7 @@ img {
 
 @media (max-width: 720px) {
   .prompt-grid {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
 
   .stats-grid,

@@ -15,7 +15,7 @@ export default async function HomePage() {
   const dict = getDictionary();
   const [modelRecords, promptRecords] = await Promise.all([
     fetchModels(),
-    fetchPromptRecords()
+    fetchPromptRecords({ sort: "latest" })
   ]);
   const featured = promptRecords[0] ?? featuredPrompt;
 
