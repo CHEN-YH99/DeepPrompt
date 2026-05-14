@@ -362,6 +362,11 @@ export type Dictionary = {
     msgApiUnreachable: string;
     msgFailed: string;
   };
+  tags: {
+    style: Record<string, string>;
+    color: Record<string, string>;
+    usage: Record<string, string>;
+  };
 };
 
 const zhCN: Dictionary = {
@@ -749,6 +754,42 @@ const zhCN: Dictionary = {
     msgInvalid: "注册信息不完整或格式不正确，请检查后重试。",
     msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
     msgFailed: "注册失败，请稍后重试。"
+  },
+  tags: {
+    style: {
+      REALISM: "写实",
+      CYBERPUNK: "赛博朋克",
+      ANIME: "动漫",
+      MINIMAL: "极简",
+      EDITORIAL: "社论",
+      INTERIOR: "室内",
+      PRODUCT: "产品",
+      BRUTALIST: "粗野主义",
+      STUDIO: "工作室",
+      "FILM GRAIN": "胶片颗粒",
+      "DENSE UI": "密集界面",
+      TERMINAL: "终端"
+    },
+    color: {
+      COLD: "冷色",
+      WARM: "暖色",
+      MONO: "单色",
+      BLACK: "黑色",
+      WHITE: "白色",
+      RED: "红色",
+      GREEN: "绿色",
+      "RED SHIFT": "红移"
+    },
+    usage: {
+      PORTRAIT: "人像",
+      LANDSCAPE: "风景",
+      PRODUCT: "产品",
+      UI: "界面",
+      "CONCEPT ART": "概念艺术",
+      AD: "广告",
+      COVER: "封面",
+      "KEY VISUAL": "主视觉"
+    }
   }
 };
 
@@ -1145,6 +1186,42 @@ const enUS: Dictionary = {
     msgInvalid: "Registration data is incomplete or invalid. Please review and retry.",
     msgApiUnreachable: "API service is unreachable. Make sure the API is running.",
     msgFailed: "Registration failed. Please retry later."
+  },
+  tags: {
+    style: {
+      REALISM: "Realism",
+      CYBERPUNK: "Cyberpunk",
+      ANIME: "Anime",
+      MINIMAL: "Minimal",
+      EDITORIAL: "Editorial",
+      INTERIOR: "Interior",
+      PRODUCT: "Product",
+      BRUTALIST: "Brutalist",
+      STUDIO: "Studio",
+      "FILM GRAIN": "Film Grain",
+      "DENSE UI": "Dense UI",
+      TERMINAL: "Terminal"
+    },
+    color: {
+      COLD: "Cold",
+      WARM: "Warm",
+      MONO: "Mono",
+      BLACK: "Black",
+      WHITE: "White",
+      RED: "Red",
+      GREEN: "Green",
+      "RED SHIFT": "Red Shift"
+    },
+    usage: {
+      PORTRAIT: "Portrait",
+      LANDSCAPE: "Landscape",
+      PRODUCT: "Product",
+      UI: "UI",
+      "CONCEPT ART": "Concept Art",
+      AD: "Ad",
+      COVER: "Cover",
+      "KEY VISUAL": "Key Visual"
+    }
   }
 };
 

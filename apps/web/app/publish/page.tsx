@@ -163,7 +163,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     <TagPicker
                       label={dict.publish.styleTags}
                       name="style_tags"
-                      options={STYLE_OPTIONS}
+                      options={STYLE_OPTIONS.map((v) => ({ value: v, label: dict.tags.style[v] ?? v }))}
                       max={5}
                       required
                       maxHintLabel={dict.publish.tagMaxHint}
@@ -171,14 +171,14 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     <TagPicker
                       label={dict.publish.usageTags}
                       name="usage_tags"
-                      options={USAGE_OPTIONS}
+                      options={USAGE_OPTIONS.map((v) => ({ value: v, label: dict.tags.usage[v] ?? v }))}
                       max={5}
                       maxHintLabel={dict.publish.tagMaxHint}
                     />
                     <TagPicker
                       label={dict.publish.colorTags}
                       name="color_tags"
-                      options={COLOR_OPTIONS}
+                      options={COLOR_OPTIONS.map((v) => ({ value: v, label: dict.tags.color[v] ?? v }))}
                       max={5}
                       maxHintLabel={dict.publish.tagMaxHint}
                     />

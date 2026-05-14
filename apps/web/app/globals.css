@@ -913,17 +913,6 @@ img {
   pointer-events: none;
 }
 
-.collapsible-body {
-  overflow: hidden;
-  max-height: 200px;
-  transition: max-height 250ms ease-out;
-}
-
-.collapsible-body[data-expanded="true"] {
-  max-height: 2000px;
-  transition: max-height 400ms ease-in;
-}
-
 .micro-action {
   margin-top: 8px;
   padding: 4px 8px;

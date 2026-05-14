@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+type TagOption = { value: string; label: string };
+
 type TagPickerProps = {
   label: string;
   name: string;
-  options: readonly string[];
+  options: TagOption[];
   max?: number;
   required?: boolean;
   maxHintLabel: string;
@@ -39,20 +41,20 @@ export function TagPicker({
       {atMax ? <div className="field-hint">{maxHintLabel}</div> : null}
       <div className="checkbox-grid">
         {options.map((option) => {
-          const isActive = selected.includes(option);
+          const isActive = selected.includes(option.value);
           const isDisabled = atMax && !isActive;
           return (
             <label
               className={`checkbox-item${isDisabled ? " disabled" : ""}`}
-              key={option}
+              key={option.value}
             >
               <input
                 checked={isActive}
-                onChange={() => toggle(option)}
+                onChange={() => toggle(option.value)}
                 type="checkbox"
-                value={option}
+                value={option.value}
               />
-              <span>{option}</span>
+              <span>{option.label}</span>
             </label>
           );
         })}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PromptCard } from "@/components/prompt-card";
+import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { CollapsibleCheckboxGroup } from "@/components/collapsible-checkbox-group";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
@@ -150,7 +151,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               title={dict.search.filterTitle}
               copy={dict.search.filterCopy}
             />
-            <form className="filter-stack" id="query-panel" method="get" style={{ marginTop: 18 }}>
+            <AutoSubmitForm className="filter-stack" id="query-panel" style={{ marginTop: 18 }}>
               <div className="field">
                 <label className="field-label" htmlFor="keyword">
                   {dict.search.keywordLabel}
@@ -186,7 +187,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 name="style_tags"
                 items={styleOptions.map((option) => ({
                   value: option,
-                  label: option,
+                  label: dict.tags.style[option] ?? option,
                   count: facets?.styleTags.find((item) => item.value === option)?.count
                 }))}
                 defaultChecked={selectedStyleTags}
@@ -200,7 +201,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 name="color_tags"
                 items={colorOptions.map((option) => ({
                   value: option,
-                  label: option,
+                  label: dict.tags.color[option] ?? option,
                   count: facets?.colorTags.find((item) => item.value === option)?.count
                 }))}
                 defaultChecked={selectedColorTags}
@@ -214,7 +215,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 name="usage_tags"
                 items={usageOptions.map((option) => ({
                   value: option,
-                  label: option,
+                  label: dict.tags.usage[option] ?? option,
                   count: facets?.usageTags.find((item) => item.value === option)?.count
                 }))}
                 defaultChecked={selectedUsageTags}
@@ -239,7 +240,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <button className="action" type="submit">
                 {dict.common.actions.executeQuery}
               </button>
-            </form>
+            </AutoSubmitForm>
           </aside>
           <div className="section" data-unit="UNIT / RESULT-08">
             <SectionHeader
