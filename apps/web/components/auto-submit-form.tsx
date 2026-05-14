@@ -29,7 +29,7 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
     }
 
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
   function handleChange(event: FormEvent<HTMLFormElement>) {

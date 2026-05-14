@@ -8,8 +8,7 @@ import { Shell } from "@/components/shell";
 import {
   SEARCH_SORT_VALUES,
   fetchModels,
-  fetchPromptList,
-  searchHotTerms
+  fetchPromptList
 } from "@/lib/data";
 import { getDictionary, applyVars } from "@/lib/i18n";
 import { STYLE_OPTIONS, COLOR_OPTIONS, USAGE_OPTIONS } from "@/lib/tag-options";
@@ -127,17 +126,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               copy={dict.search.hotCopy}
             />
             <div className="card-list" style={{ marginTop: 18 }}>
-              {searchHotTerms.map((term, index) => (
+              {dict.hotTerms.map((term, index) => (
                 <Link
                   className="telemetry-card"
-                  href={`/search?q=${encodeURIComponent(term)}`}
-                  key={term}
+                  href={`/search?q=${encodeURIComponent(term.value)}`}
+                  key={term.value}
                   style={{ display: "block" }}
                 >
                   <div className="card-kicker">
                     {dict.search.hotRank} {index + 1}
                   </div>
-                  <div className="card-value">{term}</div>
+                  <div className="card-value">{term.label}</div>
                 </Link>
               ))}
             </div>

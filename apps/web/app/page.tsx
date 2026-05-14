@@ -5,8 +5,7 @@ import {
   featuredPrompt,
   fetchCurrentUser,
   fetchModels,
-  fetchPromptRecords,
-  searchHotTerms
+  fetchPromptRecords
 } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
@@ -123,12 +122,12 @@ export default async function HomePage() {
               copy={dict.home.hotCopy}
             />
             <div className="card-list" style={{ marginTop: 18 }}>
-              {searchHotTerms.map((term, index) => (
-                <div className="telemetry-card" key={term}>
+              {dict.hotTerms.map((term, index) => (
+                <div className="telemetry-card" key={term.value}>
                   <span className="card-kicker">
                     {dict.home.hotRank} {String(index + 1).padStart(2, "0")}
                   </span>
-                  <div className="card-value">{term}</div>
+                  <div className="card-value">{term.label}</div>
                 </div>
               ))}
             </div>

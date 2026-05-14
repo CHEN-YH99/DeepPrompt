@@ -367,6 +367,7 @@ export type Dictionary = {
     color: Record<string, string>;
     usage: Record<string, string>;
   };
+  hotTerms: { value: string; label: string }[];
 };
 
 const zhCN: Dictionary = {
@@ -790,7 +791,14 @@ const zhCN: Dictionary = {
       COVER: "封面",
       "KEY VISUAL": "主视觉"
     }
-  }
+  },
+  hotTerms: [
+    { value: "TACTICAL PORTRAIT", label: "战术人像" },
+    { value: "FLUX PRODUCT", label: "FLUX 产品" },
+    { value: "CYBERPUNK RAIN", label: "赛博朋克雨夜" },
+    { value: "BLUEPRINT LANDSCAPE", label: "蓝图风景" },
+    { value: "UI MATERIAL", label: "UI 素材" }
+  ]
 };
 
 const enUS: Dictionary = {
@@ -1222,7 +1230,14 @@ const enUS: Dictionary = {
       COVER: "Cover",
       "KEY VISUAL": "Key Visual"
     }
-  }
+  },
+  hotTerms: [
+    { value: "TACTICAL PORTRAIT", label: "Tactical Portrait" },
+    { value: "FLUX PRODUCT", label: "Flux Product" },
+    { value: "CYBERPUNK RAIN", label: "Cyberpunk Rain" },
+    { value: "BLUEPRINT LANDSCAPE", label: "Blueprint Landscape" },
+    { value: "UI MATERIAL", label: "UI Material" }
+  ]
 };
 
 export const dictionaries = {

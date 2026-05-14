@@ -4,6 +4,18 @@ import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
+  return `${y}/${mo}/${d} ${h}:${mi}:${s}`;
+}
+
 type PromptCardProps = {
   prompt: PromptRecord;
   priority?: boolean;
@@ -45,7 +57,7 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
         </span>
       </div>
       <div className="kpi-row" style={{ marginTop: 2 }}>
-        <span>{prompt.createdAt}</span>
+        <span>{formatDateTime(prompt.createdAt)}</span>
       </div>
       <div className="action-row">
         <Link className="micro-action" href={`/prompts/${prompt.id}`}>
