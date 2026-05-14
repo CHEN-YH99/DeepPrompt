@@ -1,4 +1,5 @@
 import { PublishForm } from "@/components/publish-form";
+import { PublishLoadingOverlay } from "@/components/publish-loading-overlay";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
 import { TagPicker } from "@/components/tag-picker";
@@ -212,6 +213,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                   {dict.common.actions.saveDraft}
                 </button>
               </div>
+              <PublishLoadingOverlay />
             </form>
           </div>
         </section>
