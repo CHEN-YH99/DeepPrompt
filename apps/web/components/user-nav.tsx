@@ -50,11 +50,14 @@ export function UserNav({
   useEffect(() => {
     mountedRef.current = true;
 
-    // hydrate 后立刻用 localStorage 缓存值修正，避免 SSR cookie 残留随机名导致的闪烁
-    const cached = readCachedNickname();
-    if (cached && cached !== initialNickname) {
-      setNickname(cached);
-    }
+    // hydrate 后用 microtask 修正为 localStorage 缓存值，避免 SSR cookie 残留随机名导致的闪烁
+    queueMicrotask(() => {
+      if (!mountedRef.current) return;
+      const cached = readCachedNickname();
+      if (cached && cached !== initialNickname) {
+        setNickname((prev) => (prev === cached ? prev : cached));
+      }
+    });
 
     const requestId = ++latestRequestId.current;
     // 不在 unmount 时 abort：让响应里的 Set-Cookie 一定能落地，下次 SSR 才能拿到正确昵称

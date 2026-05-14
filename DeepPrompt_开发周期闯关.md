@@ -1,16 +1,16 @@
-# DeepPrompt 开发周期闯关
+# Deeprompt 开发周期闯关
 
 ## 1. 文档定位
 
 这不是那种拿来开会装忙的空心排期表，而是一份基于现有 PRD、TDD 和仓库真实状态整理出来的开发闯关文档。
 
-目标是把 DeepPrompt 从“文档很完整、源码很飘忽”的状态，推进到可内测、可公测、可持续迭代的产品状态。
+目标是把 Deeprompt 从“文档很完整、源码很飘忽”的状态，推进到可内测、可公测、可持续迭代的产品状态。
 
 ## 2. 编制依据
 
 ### 2.1 需求依据
 
-- `DeepPrompt_需求文档.md`
+- `Deeprompt_需求文档.md`
 - 核心范围以 MVP（P0）为主，覆盖：
 - Prompt 浏览 / 搜索 / 筛选
 - Prompt 详情页
@@ -21,7 +21,7 @@
 
 ### 2.2 技术依据
 
-- `DeepPrompt_技术实现文档.md`
+- `Deeprompt_技术实现文档.md`
 - 目标技术栈：
 - 前端：Next.js 14 App Router
 - 后端：NestJS + Fastify
@@ -38,7 +38,7 @@
 - `apps/web/.next` 构建产物存在，说明前端页面曾经被启动和编译过
 - `apps/web/dev.stdout.log` 显示历史上已编译过 `/`、`/search`、`/publish`、`/me/prompts`、`/login`、`/prompts/[id]`
 - 但当前仓库缺少 `apps/web/app` 等关键源码目录
-- `apps/web/dev.stderr.log` 明确报错：`ENOENT: no such file or directory, scandir 'E:\个人项目\DeepPrompt\apps\web\app'`
+- `apps/web/dev.stderr.log` 明确报错：`ENOENT: no such file or directory, scandir 'E:\个人项目\Deeprompt\apps\web\app'`
 
 结论很直接：
 
@@ -212,7 +212,7 @@
 
 **目标**
 
-把 DeepPrompt 做出差异化，不只是一个卡片墙，而是一个能检索、能扩展模型、能配置参数的 Prompt 平台。
+把 Deeprompt 做出差异化，不只是一个卡片墙，而是一个能检索、能扩展模型、能配置参数的 Prompt 平台。
 
 **核心任务**
 

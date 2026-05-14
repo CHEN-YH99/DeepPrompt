@@ -27,7 +27,7 @@ export function generateMetadata(): Metadata {
       "GPT-Image-2",
       "Stable Diffusion",
       "Flux",
-      "DeepPrompt"
+      "Deeprompt"
     ],
     openGraph: {
       type: "website",

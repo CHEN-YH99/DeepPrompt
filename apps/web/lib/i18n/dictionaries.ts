@@ -372,10 +372,10 @@ export type Dictionary = {
 
 const zhCN: Dictionary = {
   common: {
-    brand: "DeepPrompt",
-    brandKicker: "[ 档案 · DeepPrompt ]",
+    brand: "Deeprompt",
+    brandKicker: "[ 档案 · Deeprompt ]",
     brandSub: "结构化网格 · 战术遥测 · 提示词智能档案",
-    footerLine: "DeepPrompt · AI 图像提示词档案库 · 模型无关的社区平台",
+    footerLine: "Deeprompt · AI 图像提示词档案库 · 模型无关的社区平台",
     actions: {
       copyPrompt: "复制提示词",
       copying: "复制中…",
@@ -423,7 +423,7 @@ const zhCN: Dictionary = {
     heroTitleLine2: "提示词",
     heroTitleLine3: "档案库",
     heroLede:
-      "DeepPrompt 是面向 AI 生图创作者的提示词档案与社区平台，当前按 PRD / TDD 的 MVP 链路落地，优先覆盖浏览、搜索、发布、详情、个人管理五条核心路径。",
+      "Deeprompt 是面向 AI 生图创作者的提示词档案与社区平台，当前按 PRD / TDD 的 MVP 链路落地，优先覆盖浏览、搜索、发布、详情、个人管理五条核心路径。",
     heroPrimary: "进入发布流程",
     heroSecondary: "查看热门提示词",
     statsSupportedModels: "已接入模型",
@@ -803,7 +803,7 @@ const zhCN: Dictionary = {
 
 const enUS: Dictionary = {
   common: {
-    brand: "DeepPrompt",
+    brand: "Deeprompt",
     brandKicker: "[ ARCHIVE / DEEPPROMPT ]",
     brandSub: "SWISS GRID / TACTICAL TELEMETRY / PROMPT INTELLIGENCE NETWORK",
     footerLine: "DEEPPROMPT / AI IMAGE PROMPT ARCHIVE / MODEL-AGNOSTIC COMMUNITY PLATFORM",
@@ -854,7 +854,7 @@ const enUS: Dictionary = {
     heroTitleLine2: "PROMPT",
     heroTitleLine3: "ARCHIVE",
     heroLede:
-      "DeepPrompt is a curated prompt archive and community for AI image creators, currently shipping the MVP loop defined by the PRD/TDD: browse, search, publish, detail, and personal management.",
+      "Deeprompt is a curated prompt archive and community for AI image creators, currently shipping the MVP loop defined by the PRD/TDD: browse, search, publish, detail, and personal management.",
     heroPrimary: "OPEN PUBLISH FLOW",
     heroSecondary: "SCAN HOT LIBRARY",
     statsSupportedModels: "SUPPORTED MODELS",

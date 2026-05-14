@@ -1,4 +1,4 @@
-**DeepPrompt**
+**Deeprompt**
 
 AI 生图提示词社区平台
 
@@ -8,12 +8,12 @@ AI 生图提示词社区平台
 | --- | --- |
 | **文档版本** | v1.0 |
 | **创建日期** | 2025 年 |
-| **参考文档** | DeepPrompt PRD v1.0 |
+| **参考文档** | Deeprompt PRD v1.0 |
 | **目标上线** | MVP 3 个月内 |
 
 # **1\. 技术文档概述**
 
-本文档基于 DeepPrompt PRD v1.0，为研发团队提供完整的技术实现参考，涵盖系统架构设计、数据库模型、API 规范、前端实现、基础设施部署及安全规范。
+本文档基于 Deeprompt PRD v1.0，为研发团队提供完整的技术实现参考，涵盖系统架构设计、数据库模型、API 规范、前端实现、基础设施部署及安全规范。
 
 | **维度** | **内容** |
 | --- | --- |
@@ -675,7 +675,7 @@ const prompt = await getPrompt(params.id);
 
 return {
 
-title: \`${prompt.title} | DeepPrompt\`,
+title: \`${prompt.title} | Deeprompt\`,
 
 description: prompt.prompt_text.slice(0, 160),
 
