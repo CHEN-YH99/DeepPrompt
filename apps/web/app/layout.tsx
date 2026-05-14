@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
 import { CacheSyncProvider } from "@/components/cache-sync-provider";
+import { ScrollStateProvider } from "@/components/scroll-state-provider";
 import { TelemetryProvider } from "@/components/telemetry-provider";
+import { TypewriterHeadline } from "@/components/typewriter-headline";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import "./globals.css";
 
@@ -64,6 +66,8 @@ export default function RootLayout({
         {children}
         <TelemetryProvider />
         <CacheSyncProvider />
+        <ScrollStateProvider />
+        <TypewriterHeadline />
       </body>
     </html>
   );

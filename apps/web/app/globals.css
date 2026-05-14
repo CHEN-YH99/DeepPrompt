@@ -84,70 +84,54 @@ img {
 /* 自定义滚动条 —— 取消浏览器默认样式，匹配工业风视觉系统 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) var(--bg-soft);
+  scrollbar-color: var(--danger) var(--bg-soft);
+}
+
+/* 自定义滚动条 —— 主题红 + 2px 扫描线纹理 + 削平长方形 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--danger) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 5px;
+  height: 5px;
 }
 
 *::-webkit-scrollbar-track {
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 3px,
-      rgba(255, 255, 255, 0.04) 3px,
-      rgba(255, 255, 255, 0.04) 4px
-    ),
-    var(--bg-soft);
-  border-left: 1px solid var(--line);
+  background: transparent;
+  border-left: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 *::-webkit-scrollbar-track:horizontal {
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 3px,
-      rgba(255, 255, 255, 0.04) 3px,
-      rgba(255, 255, 255, 0.04) 4px
-    ),
-    var(--bg-soft);
   border-left: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 *::-webkit-scrollbar-thumb {
   background:
     repeating-linear-gradient(
-      90deg,
+      0deg,
       transparent 0,
       transparent 2px,
-      rgba(0, 0, 0, 0.35) 2px,
-      rgba(0, 0, 0, 0.35) 3px
+      rgba(0, 0, 0, 0.45) 2px,
+      rgba(0, 0, 0, 0.45) 3px
     ),
-    var(--line-strong);
-  border: 1px solid #000;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    var(--danger);
+  background-size: 100% 100%, 100% 100%;
+  background-repeat: repeat;
+  box-shadow:
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.18),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.55),
+    0 0 0 0 rgba(230, 25, 25, 0);
+  transition:
+    background 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 380ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *::-webkit-scrollbar-thumb:horizontal {
   background:
     repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 2px,
-      rgba(0, 0, 0, 0.35) 2px,
-      rgba(0, 0, 0, 0.35) 3px
-    ),
-    var(--line-strong);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background:
-    repeating-linear-gradient(
       90deg,
       transparent 0,
       transparent 2px,
@@ -155,29 +139,144 @@ img {
       rgba(0, 0, 0, 0.45) 3px
     ),
     var(--danger);
-  border-color: #000;
+  background-size: 100% 100%, 100% 100%;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.55),
+    0 0 0 0 rgba(230, 25, 25, 0);
 }
 
-*::-webkit-scrollbar-thumb:horizontal:hover {
+/* 滚动中：扫描线流动 + 红光晕 */
+html[data-scrolling="true"] *::-webkit-scrollbar-thumb {
   background:
     repeating-linear-gradient(
       0deg,
       transparent 0,
       transparent 2px,
-      rgba(0, 0, 0, 0.45) 2px,
-      rgba(0, 0, 0, 0.45) 3px
+      rgba(0, 0, 0, 0.5) 2px,
+      rgba(0, 0, 0, 0.5) 3px
     ),
     var(--danger);
+  background-size: 100% 8px, 100% 100%;
+  box-shadow:
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.35),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.6),
+    0 0 8px rgba(230, 25, 25, 0.6);
+  animation: scrollbar-thumb-stream 1s linear infinite;
+}
+
+html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.5) 2px,
+      rgba(0, 0, 0, 0.5) 3px
+    ),
+    var(--danger);
+  background-size: 8px 100%, 100% 100%;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.6),
+    0 0 8px rgba(230, 25, 25, 0.6);
+  animation: scrollbar-thumb-stream-h 1s linear infinite;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.55) 2px,
+      rgba(0, 0, 0, 0.55) 3px
+    ),
+    #ff2a2a;
+  animation: scrollbar-thumb-pulse 1.9s ease-in-out infinite;
+}
+
+*::-webkit-scrollbar-thumb:horizontal:hover {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.55) 2px,
+      rgba(0, 0, 0, 0.55) 3px
+    ),
+    #ff2a2a;
 }
 
 *::-webkit-scrollbar-thumb:active {
-  background: #ff3333;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.5) 2px,
+      rgba(0, 0, 0, 0.5) 3px
+    ),
+    #ff3333;
+  box-shadow:
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(255, 60, 60, 0.85);
+  animation: none;
+}
+
+*::-webkit-scrollbar-thumb:horizontal:active {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.5) 2px,
+      rgba(0, 0, 0, 0.5) 3px
+    ),
+    #ff3333;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(255, 60, 60, 0.85);
 }
 
 *::-webkit-scrollbar-corner {
-  background: var(--bg-soft);
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  background: transparent;
+}
+
+@keyframes scrollbar-thumb-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 1px 0 0 0 rgba(255, 255, 255, 0.2),
+      inset -1px 0 0 0 rgba(0, 0, 0, 0.6),
+      0 0 6px rgba(230, 25, 25, 0.55);
+  }
+  50% {
+    box-shadow:
+      inset 1px 0 0 0 rgba(255, 255, 255, 0.4),
+      inset -1px 0 0 0 rgba(0, 0, 0, 0.6),
+      0 0 12px rgba(255, 60, 60, 0.9);
+  }
+}
+
+@keyframes scrollbar-thumb-stream {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 8px, 0 0;
+  }
+}
+
+@keyframes scrollbar-thumb-stream-h {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 8px 0, 0 0;
+  }
 }
 
 .shell {
@@ -1662,5 +1761,169 @@ img {
     opacity: 1;
     transform: none;
     animation: none;
+  }
+}
+
+/* 导航下首屏两个信息栏的入场动画（懒加载式错位现形） */
+main > .page-grid.two-col:first-of-type > .section {
+  opacity: 0;
+  transform: translateY(24px);
+  filter: blur(6px);
+  animation: section-reveal 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform, filter;
+}
+
+main > .page-grid.two-col:first-of-type > .section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(230, 25, 25, 0.18) 48%,
+    rgba(230, 25, 25, 0.4) 50%,
+    rgba(230, 25, 25, 0.18) 52%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: section-reveal-scan 1100ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 1;
+}
+
+main > .page-grid.two-col:first-of-type > .section:nth-child(1) {
+  animation-delay: 80ms;
+}
+
+main > .page-grid.two-col:first-of-type > .section:nth-child(1)::after {
+  animation-delay: 80ms;
+}
+
+main > .page-grid.two-col:first-of-type > .section:nth-child(2) {
+  animation-delay: 240ms;
+}
+
+main > .page-grid.two-col:first-of-type > .section:nth-child(2)::after {
+  animation-delay: 240ms;
+}
+
+@keyframes section-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes section-reveal-scan {
+  0% {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+}
+
+/* 首屏左侧超大标题逐字打字机（由 TypewriterHeadline 客户端组件拆字符） */
+main > .page-grid.two-col:first-of-type > .section:first-child .headline {
+  opacity: 0;
+}
+
+main > .page-grid.two-col:first-of-type > .section:first-child .headline[data-typewriter="done"] {
+  opacity: 1;
+}
+
+main > .page-grid.two-col:first-of-type > .section:first-child .headline .typewriter-char {
+  display: inline-block;
+  opacity: 0;
+  animation: typewriter-char-pop 90ms ease-out forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes typewriter-char-pop {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+    filter: blur(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+main > .page-grid.two-col:first-of-type > .section:first-child .headline::after {
+  content: "▍";
+  display: inline-block;
+  margin-left: 0.08em;
+  font-size: 0.7em;
+  vertical-align: baseline;
+  color: var(--danger);
+  opacity: 0;
+  animation: headline-cursor-blink 0.7s steps(2, end) var(--typewriter-finish-ms, 2200ms) infinite;
+}
+
+@keyframes headline-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (scripting: none) {
+  main > .page-grid.two-col:first-of-type > .section:first-child .headline {
+    opacity: 1;
+  }
+  main > .page-grid.two-col:first-of-type > .section:first-child .headline::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main > .page-grid.two-col:first-of-type > .section,
+  main > .page-grid.two-col:first-of-type > .section::after {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none;
+  }
+
+  main > .page-grid.two-col:first-of-type > .section:first-child .headline {
+    clip-path: none;
+    animation: none;
+    opacity: 1;
+  }
+
+  main > .page-grid.two-col:first-of-type > .section:first-child .headline .typewriter-char {
+    opacity: 1;
+    animation: none;
+  }
+
+  main > .page-grid.two-col:first-of-type > .section:first-child .headline::after {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-thumb:hover {
+    animation: none;
+    transition: none;
   }
 }
