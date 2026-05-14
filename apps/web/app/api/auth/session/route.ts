@@ -40,6 +40,23 @@ async function refreshAccessToken(refreshToken: string) {
   }
 }
 
+const SESSION_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
+
+function syncNicknameCookie(
+  response: NextResponse,
+  nickname: string | null | undefined,
+  current: string | null
+) {
+  if (!nickname || nickname === current) return;
+  response.cookies.set("user_nickname", nickname, {
+    httpOnly: false,
+    maxAge: SESSION_COOKIE_MAX_AGE,
+    path: "/",
+    sameSite: "lax",
+    secure: false
+  });
+}
+
 export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
@@ -48,7 +65,9 @@ export async function GET(request: NextRequest) {
   if (accessToken) {
     const me = await fetchMe(accessToken);
     if (me) {
-      return NextResponse.json({ data: me });
+      const response = NextResponse.json({ data: me });
+      syncNicknameCookie(response, me.nickname, fallbackNickname);
+      return response;
     }
   }
 
@@ -64,6 +83,7 @@ export async function GET(request: NextRequest) {
         sameSite: "lax",
         secure: false
       });
+      syncNicknameCookie(response, me?.nickname, fallbackNickname);
       return response;
     }
   }

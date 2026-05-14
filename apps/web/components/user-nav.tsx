@@ -12,6 +12,30 @@ type UserNavProps = {
   confirmLogoutLabel: string;
 };
 
+const NICKNAME_CACHE_KEY = "deepprompt:nickname";
+
+function readCachedNickname(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(NICKNAME_CACHE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedNickname(nickname: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (nickname) {
+      window.localStorage.setItem(NICKNAME_CACHE_KEY, nickname);
+    } else {
+      window.localStorage.removeItem(NICKNAME_CACHE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function UserNav({
   initialNickname,
   loginLabel,
@@ -21,18 +45,27 @@ export function UserNav({
   const [nickname, setNickname] = useState<string | null>(initialNickname);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const latestRequestId = useRef(0);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    const requestId = ++latestRequestId.current;
-    const controller = new AbortController();
+    mountedRef.current = true;
 
-    fetch("/api/auth/session", { signal: controller.signal, cache: "no-store" })
+    // hydrate 后立刻用 localStorage 缓存值修正，避免 SSR cookie 残留随机名导致的闪烁
+    const cached = readCachedNickname();
+    if (cached && cached !== initialNickname) {
+      setNickname(cached);
+    }
+
+    const requestId = ++latestRequestId.current;
+    // 不在 unmount 时 abort：让响应里的 Set-Cookie 一定能落地，下次 SSR 才能拿到正确昵称
+    fetch("/api/auth/session", { cache: "no-store" })
       .then((res) => res.json())
       .then((json: { data?: { nickname?: string } | null }) => {
-        if (requestId !== latestRequestId.current) return;
+        if (!mountedRef.current || requestId !== latestRequestId.current) return;
         const fetchedNickname = json.data?.nickname ?? null;
         if (fetchedNickname) {
-          setNickname(fetchedNickname);
+          writeCachedNickname(fetchedNickname);
+          setNickname((prev) => (prev === fetchedNickname ? prev : fetchedNickname));
           return;
         }
         // 仅当本地没有任何会话痕迹时，才清空登录态，避免抖动/竞态误登出
@@ -40,6 +73,7 @@ export function UserNav({
           typeof document !== "undefined" &&
           document.cookie.split(";").some((entry) => entry.trim().startsWith("user_nickname="));
         if (!hasNicknameCookie) {
+          writeCachedNickname(null);
           setNickname(null);
         }
       })
@@ -48,12 +82,13 @@ export function UserNav({
       });
 
     return () => {
-      controller.abort();
+      mountedRef.current = false;
     };
-  }, []);
+  }, [initialNickname]);
 
   function handleLogout() {
     document.cookie = "user_nickname=; max-age=0; path=/";
+    writeCachedNickname(null);
     setNickname(null);
     setShowLogoutConfirm(false);
     fetch("/api/auth/logout", { method: "POST" }).then(() => {
