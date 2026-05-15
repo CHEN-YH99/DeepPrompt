@@ -8,17 +8,23 @@ type LoginPageProps = {
     error?: string;
     registered?: string;
     email?: string;
+    retry_after?: string;
   }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const dict = getDictionary();
 
-  function getLoginMessage(sp?: { error?: string; registered?: string }) {
+  function getLoginMessage(sp?: { error?: string; registered?: string; retry_after?: string }) {
     if (sp?.registered === "1") return dict.login.msgRegistered;
     if (sp?.error === "invalid_credentials") return dict.login.msgInvalid;
     if (sp?.error === "captcha_required") return dict.login.captchaHint;
     if (sp?.error === "api_unreachable") return dict.login.msgApiUnreachable;
+    if (sp?.error === "account_locked") {
+      const seconds = Number(sp.retry_after ?? "0");
+      const minutes = seconds > 0 ? Math.ceil(seconds / 60) : null;
+      return minutes ? `${dict.login.msgAccountLocked}（约 ${minutes} 分钟）` : dict.login.msgAccountLocked;
+    }
     return "";
   }
 

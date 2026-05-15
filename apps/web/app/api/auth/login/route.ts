@@ -35,8 +35,19 @@ export async function POST(request: NextRequest) {
     const errorBody = (await response.json().catch(() => ({}))) as {
       error?: { code?: string };
     };
-    const errorCode = errorBody.error?.code === "CAPTCHA_REQUIRED" ? "captcha_required" : "invalid_credentials";
-    return NextResponse.redirect(new URL(`/login?error=${errorCode}`, request.url), {
+    const apiCode = errorBody.error?.code;
+    const errorCode =
+      apiCode === "CAPTCHA_REQUIRED"
+        ? "captcha_required"
+        : apiCode === "ACCOUNT_LOCKED"
+          ? "account_locked"
+          : "invalid_credentials";
+    const params = new URLSearchParams({ error: errorCode });
+    const retryAfter = response.headers.get("retry-after");
+    if (errorCode === "account_locked" && retryAfter) {
+      params.set("retry_after", retryAfter);
+    }
+    return NextResponse.redirect(new URL(`/login?${params.toString()}`, request.url), {
       status: 303
     });
   }

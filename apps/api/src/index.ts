@@ -423,6 +423,55 @@ async function verifyCaptchaToken(token: string | undefined, remoteIp: string | 
   }
 }
 
+// ── Account-level login throttling (C1.3) ──────────────────────
+// Counter `auth:fail:<account>` with 24h TTL; lock `auth:lock:<account>` with
+// tier-specific TTL. Redis 挂掉时 degrade gracefully —— /v1/auth 已有 IP 级 rateLimit 兜底。
+const LOGIN_LOCK_TIERS: Array<{ atCount: number; ttlSec: number }> = [
+  { atCount: 24, ttlSec: 24 * 3600 },
+  { atCount: 10, ttlSec: 3600 },
+  { atCount: 5, ttlSec: 15 * 60 }
+];
+
+async function checkAccountLock(account: string): Promise<{ locked: boolean; retryAfter: number }> {
+  if (!redisClient) return { locked: false, retryAfter: 0 };
+  try {
+    const ttl = await redisClient.ttl(`auth:lock:${account}`);
+    if (ttl > 0) return { locked: true, retryAfter: ttl };
+    return { locked: false, retryAfter: 0 };
+  } catch (error) {
+    console.warn("[api] checkAccountLock failed:", error instanceof Error ? error.message : String(error));
+    return { locked: false, retryAfter: 0 };
+  }
+}
+
+async function recordLoginFailure(account: string): Promise<void> {
+  if (!redisClient) return;
+  try {
+    const failKey = `auth:fail:${account}`;
+    const next = await redisClient.incr(failKey);
+    if (next === 1) {
+      await redisClient.expire(failKey, 24 * 3600);
+    }
+    for (const tier of LOGIN_LOCK_TIERS) {
+      if (next >= tier.atCount) {
+        await redisClient.set(`auth:lock:${account}`, "1", { EX: tier.ttlSec });
+        break;
+      }
+    }
+  } catch (error) {
+    console.warn("[api] recordLoginFailure failed:", error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function clearLoginFailures(account: string): Promise<void> {
+  if (!redisClient) return;
+  try {
+    await redisClient.del([`auth:fail:${account}`, `auth:lock:${account}`]);
+  } catch {
+    // ignore — best-effort cleanup
+  }
+}
+
 async function saveSession(
   userId: string,
   refreshToken: string,
@@ -892,6 +941,20 @@ app.post("/v1/auth/login", async (req, res) => {
   }
 
   const normalizedAccount = account.trim().toLowerCase();
+
+  // 账户级锁定（C1.3）：必须在 captcha 之后、DB 查询之前，避免无成本探测锁状态。
+  const lockState = await checkAccountLock(normalizedAccount);
+  if (lockState.locked) {
+    res.setHeader("Retry-After", String(lockState.retryAfter));
+    fail(
+      res,
+      423,
+      "ACCOUNT_LOCKED",
+      `Account temporarily locked, retry in ${Math.ceil(lockState.retryAfter / 60)} minutes`
+    );
+    return;
+  }
+
   const result = await pgClient.query<StoredAuthUser>(
     `
     SELECT id, email, phone, nickname, role, points, password_hash, is_active
@@ -904,12 +967,15 @@ app.post("/v1/auth/login", async (req, res) => {
 
   const row = result.rows[0];
   if (!row || !row.is_active) {
+    // 用户不存在也计入失败：防止以"是否触发锁"探测账号存在性
+    await recordLoginFailure(normalizedAccount);
     fail(res, 401, "UNAUTHORIZED", "Invalid credentials");
     return;
   }
 
   const passwordMatched = await bcrypt.compare(password, row.password_hash);
   if (!passwordMatched) {
+    await recordLoginFailure(normalizedAccount);
     fail(res, 401, "UNAUTHORIZED", "Invalid credentials");
     return;
   }
@@ -928,6 +994,7 @@ app.post("/v1/auth/login", async (req, res) => {
   const { expiresAt } = await saveSession(user.id, refreshToken, req);
 
   await pgClient.query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [user.id]);
+  await clearLoginFailures(normalizedAccount);
 
   res.cookie("refresh_token", refreshToken, {
     httpOnly: true,

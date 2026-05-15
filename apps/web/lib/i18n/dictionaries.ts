@@ -337,6 +337,7 @@ export type Dictionary = {
     msgRegistered: string;
     msgInvalid: string;
     msgApiUnreachable: string;
+    msgAccountLocked: string;
     captchaLabel: string;
     captchaSuccess: string;
     captchaHint: string;
@@ -730,6 +731,7 @@ const zhCN: Dictionary = {
     msgRegistered: "注册成功，请使用新账号登录。",
     msgInvalid: "账号或密码错误，请重试。",
     msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
+    msgAccountLocked: "账户连续登录失败已被临时锁定，请稍后重试。",
     captchaLabel: "拖动滑块验证",
     captchaSuccess: "验证成功",
     captchaHint: "请先完成验证"
@@ -1168,6 +1170,7 @@ const enUS: Dictionary = {
     msgRegistered: "Registration successful. Please sign in with the new account.",
     msgInvalid: "Invalid account or password. Please retry.",
     msgApiUnreachable: "API service is unreachable. Make sure the API is running.",
+    msgAccountLocked: "Account temporarily locked after repeated failed sign-ins. Please retry later.",
     captchaLabel: "DRAG TO VERIFY",
     captchaSuccess: "VERIFIED",
     captchaHint: "COMPLETE VERIFICATION FIRST"
