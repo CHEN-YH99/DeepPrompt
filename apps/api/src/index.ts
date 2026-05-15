@@ -212,17 +212,47 @@ if (redisUrl) {
   });
 }
 
+const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:3000")
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => value.length > 0);
+
 app.use(
   cors({
-    origin: (process.env.WEB_ORIGIN ?? "http://localhost:3000")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0),
+    origin: allowedOrigins,
     credentials: true
   })
 );
 app.use(express.json({ limit: "256kb" }));
 app.use(cookieParser());
+
+// CSRF：state-changing 请求宽松校验 Origin。
+// - 有 Origin 必须命中白名单（CORS 同源）；
+// - 无 Origin 放行（兼容 curl / sendBeacon / mobile native / 合法 webhook）。
+// telemetry 走 sendBeacon 不带 Origin，整段豁免；关卡 4 上 double-submit token 后可彻底删掉此处的"无 Origin 放行"。
+const csrfMutatingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const csrfExemptPathPrefixes = ["/v1/telemetry"];
+
+app.use((req, res, next) => {
+  if (!csrfMutatingMethods.has(req.method)) {
+    next();
+    return;
+  }
+  if (csrfExemptPathPrefixes.some((prefix) => req.path.startsWith(prefix))) {
+    next();
+    return;
+  }
+  const origin = req.get("origin");
+  if (!origin) {
+    next();
+    return;
+  }
+  if (!allowedOrigins.includes(origin)) {
+    fail(res, 403, "CSRF_ORIGIN_REJECTED", "Origin not allowed");
+    return;
+  }
+  next();
+});
 
 function getClientIp(req: Request): string | null {
   const forwarded = req.headers["x-forwarded-for"];
