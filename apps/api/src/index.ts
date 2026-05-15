@@ -507,6 +507,66 @@ function requireRole(...roles: AuthUser["role"][]) {
   };
 }
 
+// ── Admin audit + rate limit ───────────────────────────────────
+// adminRateLimit 按 user.id 分桶（与 IP 级 rateLimit 互补）。必须挂在 requireRole 之后，
+// 才能从 req.user 拿到身份；挂在前面会拒绝一切。
+const adminRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function adminRateLimit(maxRequests = 10, windowMs = 60_000) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as AuthedRequest).user;
+    const key = `admin:${user.id}:${req.path}`;
+    const now = Date.now();
+    const bucket = adminRateBuckets.get(key);
+    if (!bucket || now >= bucket.resetAt) {
+      adminRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+    if (bucket.count >= maxRequests) {
+      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      fail(res, 429, "RATE_LIMITED", "Admin rate limit exceeded");
+      return;
+    }
+    bucket.count += 1;
+    next();
+  };
+}
+
+// audit_logs 写入是 fire-and-await，但失败仅记录日志、绝不阻塞业务响应。
+// payload 需序列化得动；调用方传 plain JSON 即可。
+async function writeAuditLog(
+  req: Request,
+  action: string,
+  options: {
+    targetType?: string;
+    targetId?: string;
+    payload?: Record<string, unknown>;
+  } = {}
+) {
+  const user = (req as AuthedRequest).user;
+  if (!user) return;
+  try {
+    await pgClient.query(
+      `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, payload, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        user.id,
+        user.role,
+        action,
+        options.targetType ?? null,
+        options.targetId ?? null,
+        options.payload ?? {},
+        getClientIp(req),
+        (req.get("user-agent") ?? "").slice(0, 1024) || null
+      ]
+    );
+  } catch (error) {
+    logError(req, "audit_log_write", error);
+  }
+}
+
 async function getOptionalUser(req: Request) {
   const token = getBearerToken(req);
   if (!token) {
@@ -1196,23 +1256,15 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).user;
   const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
   const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
-  const isPrivileged = user.role === "admin" || user.role === "moderator";
-  const params: unknown[] = [];
-  const conditions: string[] = [];
-
-  // 管理员/审核员视角：/me/prompts 充当全量后台列表（含发布者列、审核动作），
-  // 因此不按 author 过滤，便于看到所有用户提交的作品。普通用户继续只看自己。
-  if (!isPrivileged) {
-    params.push(user.id);
-    conditions.push(`p.author_id = $${params.length}`);
-  }
+  const params: unknown[] = [user.id];
+  const conditions: string[] = [`p.author_id = $1`];
 
   if (allowedStatuses.includes(statusFilter as PromptStatus)) {
     params.push(statusFilter);
     conditions.push(`p.status = $${params.length}::prompt_status`);
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
   const result = await pgClient.query<PromptListRow>(
     `
@@ -1250,6 +1302,66 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
   const items = await Promise.all(result.rows.map(toPromptListItem));
   success(res, items);
 });
+
+// admin / moderator 全量列表（关卡 1 / C1.5 拆出）。
+// 之前藏在 /v1/prompts/me 里，按 role 切分支，导致接口职责混淆且没有审计与专属限流。
+app.get(
+  "/v1/admin/prompts",
+  requireRole("admin", "moderator"),
+  adminRateLimit(),
+  async (req, res) => {
+    const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
+    const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (allowedStatuses.includes(statusFilter as PromptStatus)) {
+      params.push(statusFilter);
+      conditions.push(`p.status = $${params.length}::prompt_status`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const result = await pgClient.query<PromptListRow>(
+      `
+      SELECT
+        p.id,
+        p.title,
+        LEFT(p.prompt_text, 180) AS excerpt,
+        p.model_ids,
+        array_to_string(p.model_ids, ' / ') AS model_label,
+        p.style_tags,
+        p.usage_tags,
+        p.color_tags,
+        u.nickname AS author,
+        p.like_count,
+        p.collect_count,
+        p.copy_count,
+        p.created_at,
+        p.status,
+        (
+          SELECT pi.url
+          FROM prompt_images pi
+          WHERE pi.prompt_id = p.id
+          ORDER BY pi.sort_order ASC
+          LIMIT 1
+        ) AS cover_url
+      FROM prompts p
+      JOIN users u ON u.id = p.author_id
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      LIMIT 100
+      `,
+      params
+    );
+
+    const items = await Promise.all(result.rows.map(toPromptListItem));
+    await writeAuditLog(req, "admin.prompts.list", {
+      payload: { status: statusFilter || null, count: items.length }
+    });
+    success(res, items);
+  }
+);
 
 app.get("/v1/prompts/:id", async (req, res) => {
   const prompt = await getPromptDetail(req.params.id);
@@ -1610,6 +1722,7 @@ const MODERATION_TRANSITIONS: Record<string, PromptStatus> = {
 app.post(
   "/v1/prompts/:id/moderate",
   requireRole("admin", "moderator"),
+  adminRateLimit(),
   async (req, res) => {
     const action = String((req.body as { action?: string })?.action ?? "").toLowerCase();
     const nextStatus = MODERATION_TRANSITIONS[action];
@@ -1648,65 +1761,78 @@ app.post(
       }
     }
 
+    await writeAuditLog(req, "admin.prompts.moderate", {
+      targetType: "prompt",
+      targetId: promptId,
+      payload: { action, next_status: nextStatus }
+    });
     success(res, { id: promptId, status: row.status });
   }
 );
 
-app.get("/v1/admin/moderation", requireRole("admin", "moderator"), async (req, res) => {
-  const statusFilter = String(req.query.status ?? "pending").trim().toLowerCase();
-  const allowed: PromptStatus[] = ["pending", "approved", "rejected", "archived"];
-  const target = (allowed.includes(statusFilter as PromptStatus) ? statusFilter : "pending") as PromptStatus;
+app.get(
+  "/v1/admin/moderation",
+  requireRole("admin", "moderator"),
+  adminRateLimit(),
+  async (req, res) => {
+    const statusFilter = String(req.query.status ?? "pending").trim().toLowerCase();
+    const allowed: PromptStatus[] = ["pending", "approved", "rejected", "archived"];
+    const target = (allowed.includes(statusFilter as PromptStatus) ? statusFilter : "pending") as PromptStatus;
 
-  const list = await pgClient.query<PromptListRow>(
-    `
-    SELECT
-      p.id,
-      p.title,
-      LEFT(p.prompt_text, 180) AS excerpt,
-      p.model_ids,
-      array_to_string(p.model_ids, ' / ') AS model_label,
-      p.style_tags,
-      p.usage_tags,
-      p.color_tags,
-      u.nickname AS author,
-      p.like_count,
-      p.collect_count,
-      p.copy_count,
-      p.created_at,
-      p.status,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url
-    FROM prompts p
-    JOIN users u ON u.id = p.author_id
-    WHERE p.status = $1::prompt_status
-    ORDER BY p.created_at ASC
-    LIMIT 50
-    `,
-    [target]
-  );
+    const list = await pgClient.query<PromptListRow>(
+      `
+      SELECT
+        p.id,
+        p.title,
+        LEFT(p.prompt_text, 180) AS excerpt,
+        p.model_ids,
+        array_to_string(p.model_ids, ' / ') AS model_label,
+        p.style_tags,
+        p.usage_tags,
+        p.color_tags,
+        u.nickname AS author,
+        p.like_count,
+        p.collect_count,
+        p.copy_count,
+        p.created_at,
+        p.status,
+        (
+          SELECT pi.url
+          FROM prompt_images pi
+          WHERE pi.prompt_id = p.id
+          ORDER BY pi.sort_order ASC
+          LIMIT 1
+        ) AS cover_url
+      FROM prompts p
+      JOIN users u ON u.id = p.author_id
+      WHERE p.status = $1::prompt_status
+      ORDER BY p.created_at ASC
+      LIMIT 50
+      `,
+      [target]
+    );
 
-  const counts = await pgClient.query<{ status: PromptStatus; count: string }>(
-    `SELECT status, COUNT(*)::TEXT AS count FROM prompts GROUP BY status`
-  );
-  const summary: Record<PromptStatus, number> = {
-    draft: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    archived: 0
-  };
-  for (const row of counts.rows) {
-    summary[row.status] = Number(row.count);
+    const counts = await pgClient.query<{ status: PromptStatus; count: string }>(
+      `SELECT status, COUNT(*)::TEXT AS count FROM prompts GROUP BY status`
+    );
+    const summary: Record<PromptStatus, number> = {
+      draft: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      archived: 0
+    };
+    for (const row of counts.rows) {
+      summary[row.status] = Number(row.count);
+    }
+
+    const items = await Promise.all(list.rows.map(toPromptListItem));
+    await writeAuditLog(req, "admin.moderation.list", {
+      payload: { status: target, count: items.length }
+    });
+    success(res, items, { status: target, summary } as unknown as Record<string, unknown>);
   }
-
-  const items = await Promise.all(list.rows.map(toPromptListItem));
-  success(res, items, { status: target, summary } as unknown as Record<string, unknown>);
-});
+);
 
 app.get("/v1/me/collections", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).user;
@@ -1824,7 +1950,8 @@ app.post("/v1/telemetry", async (req, res) => {
 app.get(
   "/v1/admin/telemetry/summary",
   requireRole("admin", "moderator"),
-  async (_req, res) => {
+  adminRateLimit(),
+  async (req, res) => {
     const result = await pgClient.query<{
       kind: "event" | "error";
       name: string;
@@ -1837,6 +1964,9 @@ app.get(
        ORDER BY COUNT(*) DESC
        LIMIT 50`
     );
+    await writeAuditLog(req, "admin.telemetry.summary", {
+      payload: { count: result.rows.length }
+    });
     success(res, result.rows.map((row) => ({ ...row, count: Number(row.count) })));
   }
 );
@@ -1853,6 +1983,7 @@ function generateInviteCode(): string {
 app.post(
   "/v1/invites",
   requireRole("admin", "moderator"),
+  adminRateLimit(),
   async (req, res) => {
     const body = (req.body ?? {}) as {
       max_uses?: number;
@@ -1883,6 +2014,11 @@ app.post(
       [code, user.id, maxUses, note, expiresAt]
     );
     const row = result.rows[0]!;
+    await writeAuditLog(req, "admin.invites.create", {
+      targetType: "invite",
+      targetId: row.code,
+      payload: { max_uses: row.max_uses, expires_at: row.expires_at, has_note: Boolean(note) }
+    });
     success(res, {
       code: row.code,
       max_uses: row.max_uses,
@@ -1897,7 +2033,8 @@ app.post(
 app.get(
   "/v1/invites",
   requireRole("admin", "moderator"),
-  async (_req, res) => {
+  adminRateLimit(),
+  async (req, res) => {
     const result = await pgClient.query<{
       code: string;
       max_uses: number;
@@ -1910,6 +2047,9 @@ app.get(
       `SELECT code, max_uses, used_count, note, expires_at, disabled_at, created_at
        FROM invite_codes ORDER BY created_at DESC LIMIT 100`
     );
+    await writeAuditLog(req, "admin.invites.list", {
+      payload: { count: result.rows.length }
+    });
     success(
       res,
       result.rows.map((row) => ({

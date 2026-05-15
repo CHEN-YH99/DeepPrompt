@@ -564,6 +564,30 @@ export async function fetchMyPromptRecords(accessToken?: string, status?: Prompt
   }
 }
 
+// admin / moderator 用,拉取全量 prompts(关卡 1 / C1.5 拆分后专属端点)。
+export async function fetchAdminPromptRecords(accessToken?: string, status?: PromptStatus | null) {
+  if (!accessToken) {
+    return [];
+  }
+
+  try {
+    const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+    const response = await fetch(`${apiBaseUrl}/v1/admin/prompts${suffix}`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await readApiData<PromptListItem[]>(response);
+    return data.map(promptListItemToPromptRecord);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchPromptRecordById(id: string, accessToken?: string) {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/prompts/${id}`, {

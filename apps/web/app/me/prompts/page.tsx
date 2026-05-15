@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { SectionHeader } from "@/components/section-header";
 import { Shell } from "@/components/shell";
-import { fetchCurrentUser, fetchMyPromptRecords } from "@/lib/data";
+import { fetchAdminPromptRecords, fetchCurrentUser, fetchMyPromptRecords } from "@/lib/data";
 import { applyVars, getDictionary } from "@/lib/i18n";
 import type { PromptStatus } from "@deepprompt/types";
 import { ModerationActions } from "@/components/moderation-actions";
@@ -31,10 +31,13 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
   const tab = parseTab(resolvedSearchParams?.status);
   const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page ?? "1", 10) || 1);
   const statusFilter: PromptStatus | null = tab === "all" ? null : (tab as PromptStatus);
-  const [currentUser, allRecords] = await Promise.all([
-    fetchCurrentUser(accessToken),
-    fetchMyPromptRecords(accessToken, statusFilter)
-  ]);
+  // 先拿当前用户身份再决定列表来源；普通用户调 /v1/prompts/me，admin/moderator 调 /v1/admin/prompts。
+  // 接口已按 role 拆分,/v1/prompts/me 不再返回他人内容(关卡 1 / C1.5)。
+  const currentUser = await fetchCurrentUser(accessToken);
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "moderator";
+  const allRecords = isAdmin
+    ? await fetchAdminPromptRecords(accessToken, statusFilter)
+    : await fetchMyPromptRecords(accessToken, statusFilter);
   const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const promptRecords = allRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -42,8 +45,6 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
     resolvedSearchParams?.created === "1" ? dict.myPrompts.submittedForReviewNotice : "";
   const totalCopies = allRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
   const totalCollects = allRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
-
-  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   const statusLabelMap: Record<PromptStatus, string> = {
     approved: dict.common.status.approved,
