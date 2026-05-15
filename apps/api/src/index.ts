@@ -524,6 +524,48 @@ async function revokeSessionByToken(refreshToken: string) {
   }
 }
 
+// ── Refresh token rotation (C1.1) ──────────────────────────────
+// 30s 宽容期内允许同一 refresh 重放，返回当时签发的新对（合法 retry，比如客户端网络抖动）。
+// 超出宽容期的重放视为 token 窃取：撤销该用户所有未撤销 session 并写 audit log。
+const REFRESH_GRACE_PERIOD_SEC = 30;
+
+type RotationCacheValue = { accessToken: string; refreshToken: string };
+
+async function cacheRotation(oldHash: string, value: RotationCacheValue) {
+  if (!redisClient) return;
+  try {
+    await redisClient.set(`auth:rotate:${oldHash}`, JSON.stringify(value), {
+      EX: REFRESH_GRACE_PERIOD_SEC
+    });
+  } catch (error) {
+    console.warn(
+      "[api] cacheRotation failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+}
+
+async function readRotationCache(oldHash: string): Promise<RotationCacheValue | null> {
+  if (!redisClient) return null;
+  try {
+    const raw = await redisClient.get(`auth:rotate:${oldHash}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as RotationCacheValue;
+  } catch {
+    return null;
+  }
+}
+
+async function revokeAllUserSessions(userId: string): Promise<number> {
+  const result = await pgClient.query<{ id: string }>(
+    `UPDATE auth_sessions SET revoked_at = NOW()
+     WHERE user_id = $1 AND revoked_at IS NULL
+     RETURNING id`,
+    [userId]
+  );
+  return result.rowCount ?? 0;
+}
+
 function getBearerToken(req: Request) {
   const authHeader = req.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -1024,53 +1066,150 @@ app.post("/v1/auth/refresh", async (req, res) => {
     return;
   }
 
+  let payload: AuthTokenPayload;
   try {
-    const payload = jwt.verify(refreshToken, jwtRefreshSecret) as AuthTokenPayload;
-    if (payload.tokenType !== "refresh") {
-      fail(res, 401, "UNAUTHORIZED", "Invalid token type");
-      return;
-    }
-
-    const refreshTokenHash = hashToken(refreshToken);
-    const sessionResult = await pgClient.query<{ user_id: string; revoked_at: Date | null }>(
-      `
-      SELECT user_id, revoked_at
-      FROM auth_sessions
-      WHERE refresh_token_hash = $1 AND expires_at > NOW()
-      LIMIT 1
-      `,
-      [refreshTokenHash]
-    );
-
-    const session = sessionResult.rows[0];
-    if (!session || session.revoked_at) {
-      fail(res, 401, "UNAUTHORIZED", "Refresh token is invalid");
-      return;
-    }
-
-    const userResult = await pgClient.query<AuthUser>(
-      `
-      SELECT id, email, phone, nickname, role, points
-      FROM users
-      WHERE id = $1 AND is_active = TRUE
-      `,
-      [session.user_id]
-    );
-    const user = userResult.rows[0];
-    if (!user) {
-      fail(res, 401, "UNAUTHORIZED", "User not found");
-      return;
-    }
-
-    const accessToken = signAccessToken(user);
-    success(res, {
-      access_token: accessToken,
-      expires_in: accessTokenExpiresInSeconds,
-      token_subject: payload.sub
-    });
+    payload = jwt.verify(refreshToken, jwtRefreshSecret) as AuthTokenPayload;
   } catch {
     fail(res, 401, "UNAUTHORIZED", "Invalid or expired refresh token");
+    return;
   }
+  if (payload.tokenType !== "refresh") {
+    fail(res, 401, "UNAUTHORIZED", "Invalid token type");
+    return;
+  }
+
+  const refreshTokenHash = hashToken(refreshToken);
+  const sessionResult = await pgClient.query<{
+    id: string;
+    user_id: string;
+    revoked_at: Date | null;
+  }>(
+    `
+    SELECT id, user_id, revoked_at
+    FROM auth_sessions
+    WHERE refresh_token_hash = $1 AND expires_at > NOW()
+    LIMIT 1
+    `,
+    [refreshTokenHash]
+  );
+
+  const session = sessionResult.rows[0];
+  if (!session) {
+    fail(res, 401, "UNAUTHORIZED", "Refresh token is invalid");
+    return;
+  }
+
+  // 路径 A：会话已撤销 — 检查是否在 30s 宽容期内的合法重放
+  if (session.revoked_at) {
+    const cached = await readRotationCache(refreshTokenHash);
+    if (cached) {
+      // 合法 retry：返回当时签发的同一对，不触发 reuse detection
+      success(res, {
+        access_token: cached.accessToken,
+        refresh_token: cached.refreshToken,
+        expires_in: accessTokenExpiresInSeconds,
+        token_subject: payload.sub
+      });
+      return;
+    }
+    // 超出宽容期仍在用旧 token = 视为窃取
+    const revokedCount = await revokeAllUserSessions(session.user_id);
+    logError(req, "auth.refresh.reuse_detected", new Error(
+      `Refresh token reuse detected for user=${session.user_id}, revoked ${revokedCount} sessions`
+    ));
+    try {
+      await pgClient.query(
+        `INSERT INTO audit_logs (actor_id, actor_role, action, target_type, target_id, payload, ip_address, user_agent)
+         VALUES ($1, 'user'::user_role, $2, $3, $4, $5, $6, $7)`,
+        [
+          session.user_id,
+          "auth.refresh.reuse_detected",
+          "session",
+          session.id,
+          { revoked_sessions: revokedCount },
+          getClientIp(req),
+          (req.get("user-agent") ?? "").slice(0, 1024) || null
+        ]
+      );
+    } catch (error) {
+      logError(req, "audit_log_write", error);
+    }
+    fail(res, 401, "AUTH_TOKEN_REVOKED", "Refresh token reuse detected; all sessions revoked");
+    return;
+  }
+
+  // 路径 B：会话有效 — 执行轮换
+  const userResult = await pgClient.query<AuthUser>(
+    `
+    SELECT id, email, phone, nickname, role, points
+    FROM users
+    WHERE id = $1 AND is_active = TRUE
+    `,
+    [session.user_id]
+  );
+  const user = userResult.rows[0];
+  if (!user) {
+    fail(res, 401, "UNAUTHORIZED", "User not found");
+    return;
+  }
+
+  const newAccessToken = signAccessToken(user);
+  const newRefreshToken = signRefreshToken(user);
+  const newRefreshHash = hashToken(newRefreshToken);
+  const newExpiresAt = new Date(Date.now() + refreshTokenExpiresInSeconds * 1000);
+  const userAgent = req.get("user-agent") ?? null;
+  const ipAddress = req.ip ?? null;
+
+  // 用 Pool client 做事务，保证"撤销旧 + 新建新"原子完成
+  const txClient = await pgClient.connect();
+  try {
+    await txClient.query("BEGIN");
+    await txClient.query(
+      `UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL`,
+      [session.id]
+    );
+    await txClient.query(
+      `INSERT INTO auth_sessions (user_id, refresh_token_hash, user_agent, ip_address, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [session.user_id, newRefreshHash, userAgent, ipAddress, newExpiresAt]
+    );
+    await txClient.query("COMMIT");
+  } catch (error) {
+    await txClient.query("ROLLBACK").catch(() => undefined);
+    txClient.release();
+    logError(req, "auth.refresh.rotate", error);
+    fail(res, 500, "INTERNAL_ERROR", "Failed to rotate session");
+    return;
+  }
+  txClient.release();
+
+  if (redisClient) {
+    try {
+      await redisClient.del(`user:session:${refreshTokenHash}`);
+      await redisClient.hSet(`user:session:${newRefreshHash}`, {
+        user_id: session.user_id,
+        session_id: session.id
+      });
+      await redisClient.expire(`user:session:${newRefreshHash}`, refreshTokenExpiresInSeconds);
+    } catch (error) {
+      console.warn(
+        "[api] session cache update failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  await cacheRotation(refreshTokenHash, {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken
+  });
+
+  success(res, {
+    access_token: newAccessToken,
+    refresh_token: newRefreshToken,
+    expires_in: accessTokenExpiresInSeconds,
+    token_subject: payload.sub
+  });
 });
 
 app.post("/v1/auth/logout", async (req, res) => {

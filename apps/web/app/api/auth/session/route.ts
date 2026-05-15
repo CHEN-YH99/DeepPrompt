@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ACCESS_TOKEN_COOKIE_OPTIONS } from "@/lib/cookie-defaults";
+import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS } from "@/lib/cookie-defaults";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
@@ -24,7 +24,9 @@ async function fetchMe(token: string) {
   }
 }
 
-async function refreshAccessToken(refreshToken: string) {
+async function refreshAccessToken(
+  refreshToken: string
+): Promise<{ accessToken: string; refreshToken: string | null } | null> {
   try {
     const response = await fetch(`${apiBaseUrl}/v1/auth/refresh`, {
       method: "POST",
@@ -34,9 +36,11 @@ async function refreshAccessToken(refreshToken: string) {
     });
     if (!response.ok) return null;
     const json = (await response.json()) as {
-      data?: { access_token?: string };
+      data?: { access_token?: string; refresh_token?: string };
     };
-    return json.data?.access_token ?? null;
+    const accessToken = json.data?.access_token;
+    if (!accessToken) return null;
+    return { accessToken, refreshToken: json.data?.refresh_token ?? null };
   } catch {
     return null;
   }
@@ -54,11 +58,14 @@ export async function GET(request: NextRequest) {
   }
 
   if (refreshToken) {
-    const newAccessToken = await refreshAccessToken(refreshToken);
-    if (newAccessToken) {
-      const me = await fetchMe(newAccessToken);
+    const refreshed = await refreshAccessToken(refreshToken);
+    if (refreshed) {
+      const me = await fetchMe(refreshed.accessToken);
       const response = NextResponse.json({ data: me ?? null });
-      response.cookies.set("access_token", newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+      response.cookies.set("access_token", refreshed.accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+      if (refreshed.refreshToken) {
+        response.cookies.set("refresh_token", refreshed.refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+      }
       return response;
     }
   }
