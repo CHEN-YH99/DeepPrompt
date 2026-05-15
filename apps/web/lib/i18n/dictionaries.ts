@@ -712,16 +712,16 @@ const zhCN: Dictionary = {
     rowSubmittedAt: "提交时间"
   },
   login: {
-    heroKicker: "[ 身份认证 · 接入节点 ]",
+    heroKicker: "[ 创作者档案 · 登录通道 ]",
     heroTitleLine1: "用户",
     heroTitleLine2: "登录",
     heroTitleLine3: "入口",
     heroLede:
-      "登录页按需求文档支持邮箱 / 手机号注册和第三方登录预留。当前以界面完整度为主，预留接入认证系统的结构。",
+      "登录你的 Deeprompt 创作者档案，跨模型同步收藏与发布记录，让每一个提示词都可追溯、可复用。",
     asciiRule: "[ 邮箱 ] [ 手机号 ] [ Google ] [ GitHub ] [ 微信 ]",
     formEyebrow: "[ 登录表单 ]",
-    formTitle: "登录面板",
-    formCopy: "视觉上维持深色风，交互上保留常规登录习惯，别为了风格把可用性也干没。",
+    formTitle: "档案接入面板",
+    formCopy: "以邮箱或手机号接入你的档案，开启对 Midjourney / Flux / Stable Diffusion 等模型的提示词协作。",
     account: "邮箱 / 手机号",
     password: "密码",
     google: "Google 登录",
@@ -735,15 +735,15 @@ const zhCN: Dictionary = {
     captchaHint: "请先完成验证"
   },
   register: {
-    heroKicker: "[ 创建账号 · 新用户 ]",
+    heroKicker: "[ 建立档案 · 新创作者 ]",
     heroTitleLine1: "创建",
     heroTitleLine2: "新",
     heroTitleLine3: "账号",
     heroLede:
-      "关卡 1 先打通邮箱注册主链路，手机号和 OAuth 入口保留在 API 中。注册都没有的话，后面谈审核和互动都是空中楼阁。",
+      "建立你的 Deeprompt 创作者档案，发布、收藏、追踪你在不同 AI 模型上的提示词演化，让每一次创作都被记录。",
     formEyebrow: "[ 注册表单 ]",
-    formTitle: "新用户面板",
-    formCopy: "提交后调用 /v1/auth/register，成功后引导到登录页完成登录。",
+    formTitle: "新档案面板",
+    formCopy: "留下邮箱与密码，开启模型无关的提示词档案库，把你的灵感沉淀成可检索的素材。",
     email: "邮箱",
     password: "密码",
     emailInvalid: "邮箱格式不正确",
@@ -1150,16 +1150,16 @@ const enUS: Dictionary = {
     rowSubmittedAt: "SUBMITTED"
   },
   login: {
-    heroKicker: "[ AUTHENTICATION / ACCESS NODE ]",
+    heroKicker: "[ CREATOR VAULT / ACCESS GATE ]",
     heroTitleLine1: "USER",
     heroTitleLine2: "ACCESS",
     heroTitleLine3: "GATE",
     heroLede:
-      "Supports email / phone register and reserves third-party login. For now we focus on UI completeness and keep the structure for future auth integrations.",
+      "Sign in to your Deeprompt creator vault — sync collections and published prompts across every model, keep every line of craft traceable and reusable.",
     asciiRule: "[ EMAIL ] [ PHONE ] [ GOOGLE ] [ GITHUB ] [ WECHAT ]",
     formEyebrow: "[ LOGIN FORM ]",
-    formTitle: "SIGN-IN PANEL",
-    formCopy: "Tactical-terminal aesthetic with conventional login habits; do not trade UX for style.",
+    formTitle: "VAULT ACCESS PANEL",
+    formCopy: "Authenticate with email or phone to enter the cross-model prompt collaboration network — Midjourney, Flux, Stable Diffusion and beyond.",
     account: "EMAIL / PHONE",
     password: "PASSWORD",
     google: "GOOGLE OAUTH",
@@ -1173,16 +1173,16 @@ const enUS: Dictionary = {
     captchaHint: "COMPLETE VERIFICATION FIRST"
   },
   register: {
-    heroKicker: "[ ACCOUNT CREATE / NEW OPERATOR ]",
+    heroKicker: "[ VAULT INIT / NEW CREATOR ]",
     heroTitleLine1: "CREATE",
     heroTitleLine2: "OPERATOR",
     heroTitleLine3: "ACCOUNT",
     heroLede:
-      "Gate 1 ships the email register path; phone and OAuth are kept inside the API. Without register, moderation and engagement are vapor.",
+      "Initialize your Deeprompt creator vault — publish, collect, and trace how your prompts evolve across every AI image model. Every creative move on record.",
     formEyebrow: "[ REGISTER FORM ]",
-    formTitle: "ONBOARD PANEL",
+    formTitle: "VAULT ONBOARD PANEL",
     formCopy:
-      "Submits to /v1/auth/register and redirects to login after success.",
+      "Drop an email and password to unlock the model-agnostic prompt archive — turn fleeting ideas into searchable, shareable craft.",
     email: "EMAIL",
     password: "PASSWORD",
     emailInvalid: "INVALID EMAIL FORMAT",

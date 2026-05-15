@@ -18,16 +18,25 @@ export function LoginForm({
   message,
   presetAccount
 }: LoginFormProps) {
-  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
   const [captchaHint, setCaptchaHint] = useState("");
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    if (!captchaVerified) {
-      e.preventDefault();
-      setCaptchaHint((labels as Record<string, string>).captchaHint ?? "请先完成验证");
-      return;
-    }
-  }, [captchaVerified, labels]);
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      // Turnstile widget 在表单中注入 input[name="cf-turnstile-response"]，
+      // 这里再做一道前端拦截，未完成验证时直接阻止提交。
+      if (!captchaToken) {
+        e.preventDefault();
+        setCaptchaHint((labels as Record<string, string>).captchaHint ?? "请先完成验证");
+      }
+    },
+    [captchaToken, labels]
+  );
+
+  const handleVerified = useCallback((token: string) => {
+    setCaptchaToken(token);
+    setCaptchaHint("");
+  }, []);
 
   const isMessageSuccess = message && !message.includes("错误") && !message.includes("不可达");
 
@@ -76,11 +85,8 @@ export function LoginForm({
           />
         </div>
         <SliderCaptcha
-          label={(labels as Record<string, string>).captchaLabel ?? "拖动滑块验证"}
-          onVerified={() => {
-            setCaptchaVerified(true);
-            setCaptchaHint("");
-          }}
+          label={(labels as Record<string, string>).captchaLabel ?? "请完成人机验证"}
+          onVerified={handleVerified}
           successLabel={(labels as Record<string, string>).captchaSuccess ?? "验证成功"}
         />
         {captchaHint ? (

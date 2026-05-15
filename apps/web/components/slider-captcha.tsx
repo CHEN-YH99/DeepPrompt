@@ -1,89 +1,92 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Script from "next/script";
+import { useEffect, useId, useRef } from "react";
 
 type SliderCaptchaProps = {
-  label: string;
-  successLabel: string;
-  onVerified: () => void;
+  // 兼容旧 props，仅用于在 widget 加载前显示占位文字。
+  label?: string;
+  successLabel?: string;
+  onVerified?: (token: string) => void;
 };
 
-export function SliderCaptcha({ label, successLabel, onVerified }: SliderCaptchaProps) {
-  const [offset, setOffset] = useState(0);
-  const [verified, setVerified] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const [hinting, setHinting] = useState(true);
-  const startXRef = useRef(0);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
+const TURNSTILE_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js";
 
-  // 挂载后播放一次"先右滑示意，再回弹"的引导动画，提示用户操作方向。
-  // 用户一旦真的开始拖动就立即停掉。
+// Cloudflare 提供的 always-pass 测试 key，仅在未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY 时使用。
+// 文档：https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+const DEV_TEST_SITE_KEY = "1x00000000000000000000AA";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement | string,
+        options: {
+          sitekey: string;
+          callback?: (token: string) => void;
+          "error-callback"?: () => void;
+          "expired-callback"?: () => void;
+          theme?: "light" | "dark" | "auto";
+          appearance?: "always" | "execute" | "interaction-only";
+        }
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
+
+export function SliderCaptcha({ label, onVerified }: SliderCaptchaProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  const containerId = useId();
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEV_TEST_SITE_KEY;
+
   useEffect(() => {
-    const stopTimer = setTimeout(() => setHinting(false), 2400);
-    return () => clearTimeout(stopTimer);
-  }, []);
+    let cancelled = false;
 
-  const getMaxOffset = useCallback(() => {
-    if (!trackRef.current || !thumbRef.current) return 200;
-    return trackRef.current.offsetWidth - thumbRef.current.offsetWidth;
-  }, []);
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (verified) return;
-      e.preventDefault();
-      setHinting(false);
-      setDragging(true);
-      startXRef.current = e.clientX - offset;
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    [verified, offset]
-  );
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragging || verified) return;
-      const max = getMaxOffset();
-      const next = Math.min(Math.max(e.clientX - startXRef.current, 0), max);
-      setOffset(next);
-    },
-    [dragging, verified, getMaxOffset]
-  );
-
-  const handlePointerUp = useCallback(() => {
-    if (!dragging || verified) return;
-    setDragging(false);
-    const max = getMaxOffset();
-    if (offset >= max - 5) {
-      setOffset(max);
-      setVerified(true);
-      onVerified();
-    } else {
-      setOffset(0);
+    function tryRender() {
+      if (cancelled) return;
+      if (!containerRef.current) return;
+      if (!window.turnstile) {
+        // 等 Turnstile script 注入 window.turnstile 后再渲染
+        window.setTimeout(tryRender, 200);
+        return;
+      }
+      if (widgetIdRef.current) return;
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => onVerified?.(token),
+        "expired-callback": () => {
+          if (widgetIdRef.current) {
+            window.turnstile?.reset(widgetIdRef.current);
+          }
+        },
+        theme: "dark"
+      });
     }
-  }, [dragging, verified, offset, getMaxOffset, onVerified]);
+
+    tryRender();
+
+    return () => {
+      cancelled = true;
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, [siteKey, onVerified]);
 
   return (
-    <div
-      className="captcha-track"
-      data-verified={verified}
-      data-dragging={dragging}
-      data-hinting={hinting && !dragging && !verified}
-      ref={trackRef}
-    >
-      <div className="captcha-fill" style={{ width: `${offset + 44}px` }} />
-      <span className="captcha-label">{verified ? successLabel : label}</span>
-      <div
-        className="captcha-thumb"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        ref={thumbRef}
-        style={{ transform: dragging || verified ? `translateX(${offset}px)` : undefined }}
-      >
-        {verified ? "✓" : "→"}
+    <>
+      <Script src={TURNSTILE_SCRIPT_URL} strategy="afterInteractive" async defer />
+      <div className="captcha-shell">
+        <div id={containerId} ref={containerRef} />
+        {/* fallback 文案，widget 渲染完成后会被替换 */}
+        <noscript>
+          <span className="captcha-label">{label ?? "请启用 JavaScript 完成验证"}</span>
+        </noscript>
       </div>
-    </div>
+    </>
   );
 }

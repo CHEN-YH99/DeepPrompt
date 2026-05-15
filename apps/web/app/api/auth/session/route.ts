@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  NICKNAME_COOKIE_OPTIONS
+} from "@/lib/cookie-defaults";
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
 async function fetchMe(token: string) {
@@ -40,21 +45,13 @@ async function refreshAccessToken(refreshToken: string) {
   }
 }
 
-const SESSION_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
-
 function syncNicknameCookie(
   response: NextResponse,
   nickname: string | null | undefined,
   current: string | null
 ) {
   if (!nickname || nickname === current) return;
-  response.cookies.set("user_nickname", nickname, {
-    httpOnly: false,
-    maxAge: SESSION_COOKIE_MAX_AGE,
-    path: "/",
-    sameSite: "lax",
-    secure: false
-  });
+  response.cookies.set("user_nickname", nickname, NICKNAME_COOKIE_OPTIONS);
 }
 
 export async function GET(request: NextRequest) {
@@ -76,13 +73,7 @@ export async function GET(request: NextRequest) {
     if (newAccessToken) {
       const me = await fetchMe(newAccessToken);
       const response = NextResponse.json({ data: me ?? null });
-      response.cookies.set("access_token", newAccessToken, {
-        httpOnly: true,
-        maxAge: 15 * 60,
-        path: "/",
-        sameSite: "lax",
-        secure: false
-      });
+      response.cookies.set("access_token", newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
       syncNicknameCookie(response, me?.nickname, fallbackNickname);
       return response;
     }

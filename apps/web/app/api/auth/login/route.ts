@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  NICKNAME_COOKIE_OPTIONS,
+  REFRESH_TOKEN_COOKIE_OPTIONS
+} from "@/lib/cookie-defaults";
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const payload = {
     account: String(formData.get("account") ?? ""),
-    password: String(formData.get("password") ?? "")
+    password: String(formData.get("password") ?? ""),
+    captcha_token: String(formData.get("cf-turnstile-response") ?? "")
   };
 
   let response: Response;
@@ -26,7 +33,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!response.ok) {
-    return NextResponse.redirect(new URL("/login?error=invalid_credentials", request.url), {
+    const errorBody = (await response.json().catch(() => ({}))) as {
+      error?: { code?: string };
+    };
+    const errorCode = errorBody.error?.code === "CAPTCHA_REQUIRED" ? "captcha_required" : "invalid_credentials";
+    return NextResponse.redirect(new URL(`/login?error=${errorCode}`, request.url), {
       status: 303
     });
   }
@@ -42,34 +53,15 @@ export async function POST(request: NextRequest) {
   const refreshToken = json.data?.refresh_token;
   const isAdmin = json.data?.user?.role === "admin" || json.data?.user?.role === "moderator";
   const nickname = isAdmin ? "小灰超管" : (json.data?.user?.nickname ?? "");
-  const sessionMaxAge = 7 * 24 * 60 * 60;
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   if (accessToken) {
-    result.cookies.set("access_token", accessToken, {
-      httpOnly: true,
-      maxAge: 15 * 60,
-      path: "/",
-      sameSite: "lax",
-      secure: false
-    });
+    result.cookies.set("access_token", accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
   }
   if (refreshToken) {
-    result.cookies.set("refresh_token", refreshToken, {
-      httpOnly: true,
-      maxAge: sessionMaxAge,
-      path: "/",
-      sameSite: "lax",
-      secure: false
-    });
+    result.cookies.set("refresh_token", refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
   }
   if (nickname) {
-    result.cookies.set("user_nickname", nickname, {
-      httpOnly: false,
-      maxAge: sessionMaxAge,
-      path: "/",
-      sameSite: "lax",
-      secure: false
-    });
+    result.cookies.set("user_nickname", nickname, NICKNAME_COOKIE_OPTIONS);
   }
 
   return result;

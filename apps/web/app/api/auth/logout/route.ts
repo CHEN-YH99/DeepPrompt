@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { CLEAR_COOKIE_OPTIONS } from "@/lib/cookie-defaults";
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
 export async function POST(request: NextRequest) {
@@ -19,13 +21,7 @@ export async function POST(request: NextRequest) {
 
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   const clear = (name: string, httpOnly: boolean) =>
-    result.cookies.set(name, "", {
-      httpOnly,
-      maxAge: 0,
-      path: "/",
-      sameSite: "lax",
-      secure: false
-    });
+    result.cookies.set(name, "", { ...CLEAR_COOKIE_OPTIONS, httpOnly });
   clear("access_token", true);
   clear("refresh_token", true);
   clear("user_nickname", false);

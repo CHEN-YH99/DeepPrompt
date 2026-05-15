@@ -30,7 +30,7 @@ import type {
   SearchFacetBucket,
   SearchSort
 } from "@deepprompt/types";
-import { Client } from "pg";
+import { Pool } from "pg";
 import { createClient, type RedisClientType } from "redis";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -165,18 +165,43 @@ function parseListParam(value: unknown, max = 8): string[] {
 
 const app = express();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3010);
-const jwtSecret = process.env.JWT_SECRET ?? "replace_me_with_real_jwt_secret";
-const jwtRefreshSecret =
-  process.env.JWT_REFRESH_SECRET ?? "replace_me_with_real_jwt_refresh_secret";
+const isProduction = process.env.NODE_ENV === "production";
+const cookieSecure = isProduction;
+
+function requireSecret(name: string): string {
+  const value = process.env[name];
+  if (!value || value.length < 32) {
+    throw new Error(
+      `${name} is missing or shorter than 32 chars. Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`
+    );
+  }
+  return value;
+}
+
+const jwtSecret = requireSecret("JWT_SECRET");
+const jwtRefreshSecret = requireSecret("JWT_REFRESH_SECRET");
 const accessTokenExpiresInSeconds = 15 * 60;
 const refreshTokenExpiresInSeconds = 7 * 24 * 60 * 60;
+
+// ── Captcha (Cloudflare Turnstile) ──────────────────────────────
+const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY ?? "";
+const turnstileDisabled = (process.env.TURNSTILE_DISABLED ?? "false").toLowerCase() === "true";
+if (isProduction && !turnstileSecretKey && !turnstileDisabled) {
+  throw new Error(
+    "TURNSTILE_SECRET_KEY required in production (or TURNSTILE_DISABLED=true to bypass)"
+  );
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
-const pgClient = new Client({ connectionString: databaseUrl });
+const pgClient = new Pool({
+  connectionString: databaseUrl,
+  max: 10,
+  idleTimeoutMillis: 30_000
+});
 
 let redisClient: RedisClientType | null = null;
 const redisUrl = process.env.REDIS_URL;
@@ -221,10 +246,6 @@ const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimit(maxRequests: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!redisClient) {
-      next();
-      return;
-    }
     const ip = getClientIp(req) ?? "unknown";
     const key = `rate:${ip}:${req.path}`;
     const now = Date.now();
@@ -304,6 +325,19 @@ function fail(res: Response, code: number, errorCode: string, message: string) {
   res.status(code).json(body);
 }
 
+function logError(req: Request | undefined, scope: string, error: unknown) {
+  const reqId = (req as (Request & { reqId?: string }) | undefined)?.reqId ?? "-";
+  console.error(
+    JSON.stringify({
+      level: "ERROR",
+      reqId,
+      scope,
+      message: error instanceof Error ? error.message : String(error),
+      stack: !isProduction && error instanceof Error ? error.stack : undefined
+    })
+  );
+}
+
 function signAccessToken(user: AuthUser) {
   return jwt.sign(
     {
@@ -330,6 +364,33 @@ function signRefreshToken(user: AuthUser) {
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// 校验 Cloudflare Turnstile token；未配置 secret 时按 fail-closed 处理。
+// dev 环境可设 TURNSTILE_DISABLED=true 绕过；
+// 若 dev 未配 secret 且未显式禁用，也自动放行（避免本地开发被卡死）。
+// prod 必须配 secret（已在启动时通过 isProduction 校验 fail-fast）。
+async function verifyCaptchaToken(token: string | undefined, remoteIp: string | null): Promise<boolean> {
+  if (turnstileDisabled) return true;
+  if (!turnstileSecretKey) return !isProduction;
+  if (!token) return false;
+
+  try {
+    const params = new URLSearchParams();
+    params.set("secret", turnstileSecretKey);
+    params.set("response", token);
+    if (remoteIp) params.set("remoteip", remoteIp);
+
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: params
+    });
+    if (!response.ok) return false;
+    const json = (await response.json()) as { success?: boolean };
+    return json.success === true;
+  } catch {
+    return false;
+  }
 }
 
 async function saveSession(
@@ -674,9 +735,10 @@ app.post("/v1/auth/register", async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
+  const txClient = await pgClient.connect();
   try {
-    await pgClient.query("BEGIN");
-    const result = await pgClient.query<AuthUser>(
+    await txClient.query("BEGIN");
+    const result = await txClient.query<AuthUser>(
       `
       INSERT INTO users (email, phone, nickname, password_hash)
       VALUES ($1, $2, $3, $4)
@@ -689,20 +751,20 @@ app.post("/v1/auth/register", async (req, res) => {
       throw new Error("Failed to create user");
     }
     if (invite) {
-      await pgClient.query(
+      await txClient.query(
         `UPDATE invite_codes SET used_count = used_count + 1 WHERE code = $1`,
         [invite.code]
       );
-      await pgClient.query(
+      await txClient.query(
         `INSERT INTO invite_redemptions (invite_code, user_id) VALUES ($1, $2)
          ON CONFLICT DO NOTHING`,
         [invite.code, user.id]
       );
     }
-    await pgClient.query("COMMIT");
+    await txClient.query("COMMIT");
     success(res, user);
   } catch (error) {
-    await pgClient.query("ROLLBACK").catch(() => undefined);
+    await txClient.query("ROLLBACK").catch(() => undefined);
     const message = error instanceof Error ? error.message : "";
     if (message.includes("users_email_key")) {
       fail(res, 409, "CONFLICT", "Email already exists");
@@ -713,6 +775,8 @@ app.post("/v1/auth/register", async (req, res) => {
       return;
     }
     fail(res, 500, "INTERNAL_ERROR", "Failed to register user");
+  } finally {
+    txClient.release();
   }
 });
 
@@ -721,9 +785,19 @@ app.get("/v1/auth/register", (_req, res) => {
 });
 
 app.post("/v1/auth/login", async (req, res) => {
-  const { account, password } = req.body as { account?: string; password?: string };
+  const { account, password, captcha_token: captchaToken } = req.body as {
+    account?: string;
+    password?: string;
+    captcha_token?: string;
+  };
   if (!account || !password) {
     fail(res, 400, "BAD_REQUEST", "Account and password are required");
+    return;
+  }
+
+  const captchaPassed = await verifyCaptchaToken(captchaToken, getClientIp(req));
+  if (!captchaPassed) {
+    fail(res, 401, "CAPTCHA_REQUIRED", "Captcha verification failed");
     return;
   }
 
@@ -768,7 +842,7 @@ app.post("/v1/auth/login", async (req, res) => {
   res.cookie("refresh_token", refreshToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: cookieSecure,
     expires: expiresAt
   });
 
@@ -857,14 +931,14 @@ app.get("/v1/auth/me", requireAuth, async (req, res) => {
   success(res, (req as AuthedRequest).user);
 });
 
-app.get("/v1/models", async (_req, res) => {
+app.get("/v1/models", async (req, res) => {
   try {
     const models = await loadActiveModels();
     setPublicCache(res, 60);
     success(res, models);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load models";
-    fail(res, 500, "INTERNAL_ERROR", message);
+    logError(req, "list_models", error);
+    fail(res, 500, "INTERNAL_ERROR", "Failed to load models");
   }
 });
 app.get("/v1/models/:id", async (req, res) => {
@@ -895,8 +969,8 @@ app.get("/v1/models/:id", async (req, res) => {
 
     success(res, rowToModelDetail(row, Number(countResult.rows[0]?.count ?? 0)));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load model";
-    fail(res, 500, "INTERNAL_ERROR", message);
+    logError(req, "get_model", error);
+    fail(res, 500, "INTERNAL_ERROR", "Failed to load model");
   }
 });
 
@@ -963,8 +1037,8 @@ app.post("/v1/models", requireAuth, async (req, res) => {
     invalidateModelCache();
     success(res, { id });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to upsert model";
-    fail(res, 500, "INTERNAL_ERROR", message);
+    logError(req, "upsert_model", error);
+    fail(res, 500, "INTERNAL_ERROR", "Failed to upsert model");
   }
 });
 
@@ -1321,9 +1395,10 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
     return;
   }
 
+  const txClient = await pgClient.connect();
   try {
-    await pgClient.query("BEGIN");
-    const promptResult = await pgClient.query<{ id: string }>(
+    await txClient.query("BEGIN");
+    const promptResult = await txClient.query<{ id: string }>(
       `
       INSERT INTO prompts (
         title,
@@ -1362,7 +1437,7 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
     }
 
     for (const [index, image] of images.entries()) {
-      await pgClient.query(
+      await txClient.query(
         `
         INSERT INTO prompt_images (prompt_id, url, thumb_url, width, height, file_size, sort_order)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -1379,13 +1454,22 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
       );
     }
 
-    await pgClient.query("COMMIT");
+    await txClient.query("COMMIT");
     const created = await getPromptDetail(promptId);
     success(res, created, { status });
   } catch (error) {
-    await pgClient.query("ROLLBACK");
-    const message = error instanceof Error ? error.message : "Failed to create prompt";
-    fail(res, 500, "INTERNAL_ERROR", message);
+    await txClient.query("ROLLBACK").catch(() => undefined);
+    const reqId = (req as Request & { reqId?: string }).reqId ?? "-";
+    console.error(JSON.stringify({
+      level: "ERROR",
+      reqId,
+      scope: "create_prompt",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }));
+    fail(res, 500, "INTERNAL_ERROR", "Failed to create prompt");
+  } finally {
+    txClient.release();
   }
 });
 
@@ -1926,8 +2010,8 @@ app.post("/v1/uploads/presign", requireAuth, uploadLimiter, async (req, res) => 
     const publicUrl = r2PublicUrl ? `${r2PublicUrl}/${key}` : null;
     success(res, { uploadUrl: url, key, publicUrl, expiresIn: 600 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to generate presigned URL";
-    fail(res, 500, "PRESIGN_ERROR", message);
+    logError(req, "presign_upload", error);
+    fail(res, 500, "PRESIGN_ERROR", "Failed to generate presigned URL");
   }
 });
 
@@ -1949,13 +2033,20 @@ app.post("/v1/uploads/confirm/:key", requireAuth, async (req, res) => {
   });
 });
 
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  const message = error instanceof Error ? error.message : "Unknown error";
-  fail(res, 500, "INTERNAL_ERROR", message);
+app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
+  logError(req, "unhandled_exception", error);
+  const reqId = (req as Request & { reqId?: string }).reqId ?? "-";
+  const body: ApiError = {
+    error: {
+      code: "INTERNAL_ERROR",
+      message: isProduction ? "Internal server error" : (error instanceof Error ? error.message : "Unknown error")
+    }
+  };
+  res.status(500).json({ ...body, reqId });
 });
 
 async function bootstrap() {
-  await pgClient.connect();
+  // pg.Pool 是 lazy 连接池，无需显式 connect。
   if (redisClient) {
     try {
       await redisClient.connect();

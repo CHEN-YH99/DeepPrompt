@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { ACCESS_TOKEN_COOKIE_OPTIONS } from "@/lib/cookie-defaults";
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
-const ACCESS_TOKEN_MAX_AGE = 15 * 60;
 
 async function refreshAccessToken(refreshToken: string): Promise<string | null> {
   try {
@@ -43,13 +44,7 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: requestHeaders }
   });
-  response.cookies.set("access_token", newAccessToken, {
-    httpOnly: true,
-    maxAge: ACCESS_TOKEN_MAX_AGE,
-    path: "/",
-    sameSite: "lax",
-    secure: false
-  });
+  response.cookies.set("access_token", newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
   return response;
 }
 

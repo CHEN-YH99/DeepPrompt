@@ -67,10 +67,8 @@ async function persistUploadedFile(file: File) {
 }
 
 export async function POST(request: NextRequest) {
-  console.log("[publish] POST /api/prompts received");
   const accessToken = request.cookies.get("access_token")?.value;
   if (!accessToken) {
-    console.warn("[publish] no access_token cookie — redirecting login_required");
     return NextResponse.redirect(new URL("/publish?error=login_required", request.url), {
       status: 303
     });
@@ -90,7 +88,6 @@ export async function POST(request: NextRequest) {
   if (intent === "draft") {
     status = "draft";
   } else {
-    // 管理员/版主发布直接通过，无需审核
     let isPrivileged = false;
     try {
       const meRes = await fetch(`${apiBaseUrl}/v1/auth/me`, {
@@ -107,23 +104,7 @@ export async function POST(request: NextRequest) {
     status = isPrivileged ? "approved" : "pending";
   }
 
-  console.log("[publish] form snapshot", {
-    titleLen: title.length,
-    promptTextLen: promptText.length,
-    modelId,
-    hasImageUrl: Boolean(imageUrl),
-    uploadedFileCount: uploadedFiles.length,
-    status
-  });
-
   if (title.length < 4 || promptText.length < 12 || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
-    console.warn("[publish] front-end payload check failed → invalid_prompt_payload", {
-      titleLen: title.length,
-      promptTextLen: promptText.length,
-      modelId,
-      hasImageUrl: Boolean(imageUrl),
-      uploadedFileCount: uploadedFiles.length
-    });
     return redirectWithError(request, "invalid_prompt_payload");
   }
 
@@ -163,12 +144,6 @@ export async function POST(request: NextRequest) {
     status
   };
 
-  console.log("[publish] dispatching to backend", {
-    apiBaseUrl,
-    styleTags: payload.style_tags,
-    imageCount: images.length
-  });
-
   let response: Response;
   try {
     response = await fetch(`${apiBaseUrl}/v1/prompts`, {
@@ -185,8 +160,6 @@ export async function POST(request: NextRequest) {
     return redirectWithError(request, "api_unreachable");
   }
 
-  console.log("[publish] backend responded", response.status);
-
   if (!response.ok) {
     const rawBody = await response.text().catch(() => "");
     type ApiErrorBody = { error?: { code?: string; message?: string } };
@@ -199,17 +172,7 @@ export async function POST(request: NextRequest) {
     const message = parsed?.error?.message ?? rawBody.slice(0, 200);
     console.error("[publish] backend rejected prompt creation", {
       status: response.status,
-      code: parsed?.error?.code ?? "(none)",
-      message,
-      rawBody: rawBody.slice(0, 500),
-      payloadSummary: {
-        titleLen: title.length,
-        promptTextLen: promptText.length,
-        modelId,
-        styleTags: payload.style_tags,
-        imageCount: images.length,
-        status
-      }
+      code: parsed?.error?.code ?? "(none)"
     });
     return redirectWithError(request, "publish_failed", message);
   }

@@ -17,6 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   function getLoginMessage(sp?: { error?: string; registered?: string }) {
     if (sp?.registered === "1") return dict.login.msgRegistered;
     if (sp?.error === "invalid_credentials") return dict.login.msgInvalid;
+    if (sp?.error === "captcha_required") return dict.login.captchaHint;
     if (sp?.error === "api_unreachable") return dict.login.msgApiUnreachable;
     return "";
   }
