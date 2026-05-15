@@ -71,14 +71,8 @@ export function UserNav({
           setNickname((prev) => (prev === fetchedNickname ? prev : fetchedNickname));
           return;
         }
-        // 仅当本地没有任何会话痕迹时，才清空登录态，避免抖动/竞态误登出
-        const hasNicknameCookie =
-          typeof document !== "undefined" &&
-          document.cookie.split(";").some((entry) => entry.trim().startsWith("user_nickname="));
-        if (!hasNicknameCookie) {
-          writeCachedNickname(null);
-          setNickname(null);
-        }
+        writeCachedNickname(null);
+        setNickname(null);
       })
       .catch(() => {
         // 网络错误时保留当前状态
@@ -90,7 +84,6 @@ export function UserNav({
   }, [initialNickname]);
 
   function handleLogout() {
-    document.cookie = "user_nickname=; max-age=0; path=/";
     writeCachedNickname(null);
     setNickname(null);
     setShowLogoutConfirm(false);

@@ -24,6 +24,5 @@ export async function POST(request: NextRequest) {
     result.cookies.set(name, "", { ...CLEAR_COOKIE_OPTIONS, httpOnly });
   clear("access_token", true);
   clear("refresh_token", true);
-  clear("user_nickname", false);
   return result;
 }

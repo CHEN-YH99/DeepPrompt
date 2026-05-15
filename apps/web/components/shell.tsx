@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 
 import { getDictionary } from "@/lib/i18n";
 import { UserNav } from "@/components/user-nav";
@@ -18,14 +17,6 @@ export async function Shell({ activePath, children }: ShellProps) {
     { href: "/publish", label: dict.nav.publish },
     { href: "/me/prompts", label: dict.nav.myPrompts }
   ];
-
-  let initialNickname: string | null = null;
-  try {
-    const cookieStore = await cookies();
-    initialNickname = cookieStore.get("user_nickname")?.value ?? null;
-  } catch {
-    // anonymous
-  }
 
   return (
     <>
@@ -49,7 +40,7 @@ export async function Shell({ activePath, children }: ShellProps) {
             ))}
             <UserNav
               confirmLogoutLabel={dict.nav.confirmLogout}
-              initialNickname={initialNickname}
+              initialNickname={null}
               loginLabel={dict.nav.login}
               logoutLabel={dict.nav.logout}
             />

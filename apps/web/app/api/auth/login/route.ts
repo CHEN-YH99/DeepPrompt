@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
-  NICKNAME_COOKIE_OPTIONS,
   REFRESH_TOKEN_COOKIE_OPTIONS
 } from "@/lib/cookie-defaults";
 
@@ -51,17 +50,12 @@ export async function POST(request: NextRequest) {
   };
   const accessToken = json.data?.access_token;
   const refreshToken = json.data?.refresh_token;
-  const isAdmin = json.data?.user?.role === "admin" || json.data?.user?.role === "moderator";
-  const nickname = isAdmin ? "小灰超管" : (json.data?.user?.nickname ?? "");
   const result = NextResponse.redirect(new URL("/", request.url), { status: 303 });
   if (accessToken) {
     result.cookies.set("access_token", accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
   }
   if (refreshToken) {
     result.cookies.set("refresh_token", refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
-  }
-  if (nickname) {
-    result.cookies.set("user_nickname", nickname, NICKNAME_COOKIE_OPTIONS);
   }
 
   return result;

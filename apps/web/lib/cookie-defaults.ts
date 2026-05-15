@@ -29,14 +29,6 @@ export const REFRESH_TOKEN_COOKIE_OPTIONS: CookieOptions = {
   secure: COOKIE_SECURE
 };
 
-export const NICKNAME_COOKIE_OPTIONS: CookieOptions = {
-  httpOnly: false,
-  maxAge: SESSION_COOKIE_MAX_AGE,
-  path: "/",
-  sameSite: "lax",
-  secure: COOKIE_SECURE
-};
-
 export const CLEAR_COOKIE_OPTIONS = {
   path: "/",
   sameSite: "lax" as const,

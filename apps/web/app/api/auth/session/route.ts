@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  ACCESS_TOKEN_COOKIE_OPTIONS,
-  NICKNAME_COOKIE_OPTIONS
-} from "@/lib/cookie-defaults";
+import { ACCESS_TOKEN_COOKIE_OPTIONS } from "@/lib/cookie-defaults";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
 
@@ -45,26 +42,14 @@ async function refreshAccessToken(refreshToken: string) {
   }
 }
 
-function syncNicknameCookie(
-  response: NextResponse,
-  nickname: string | null | undefined,
-  current: string | null
-) {
-  if (!nickname || nickname === current) return;
-  response.cookies.set("user_nickname", nickname, NICKNAME_COOKIE_OPTIONS);
-}
-
 export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
-  const fallbackNickname = request.cookies.get("user_nickname")?.value ?? null;
 
   if (accessToken) {
     const me = await fetchMe(accessToken);
     if (me) {
-      const response = NextResponse.json({ data: me });
-      syncNicknameCookie(response, me.nickname, fallbackNickname);
-      return response;
+      return NextResponse.json({ data: me });
     }
   }
 
@@ -74,13 +59,8 @@ export async function GET(request: NextRequest) {
       const me = await fetchMe(newAccessToken);
       const response = NextResponse.json({ data: me ?? null });
       response.cookies.set("access_token", newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
-      syncNicknameCookie(response, me?.nickname, fallbackNickname);
       return response;
     }
-  }
-
-  if (fallbackNickname) {
-    return NextResponse.json({ data: { nickname: fallbackNickname }, stale: true });
   }
 
   return NextResponse.json({ data: null });
