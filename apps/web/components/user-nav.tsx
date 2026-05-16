@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
@@ -12,79 +12,19 @@ type UserNavProps = {
   confirmLogoutLabel: string;
 };
 
-const NICKNAME_CACHE_KEY = "deepprompt:nickname";
-
-function readCachedNickname(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(NICKNAME_CACHE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedNickname(nickname: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (nickname) {
-      window.localStorage.setItem(NICKNAME_CACHE_KEY, nickname);
-    } else {
-      window.localStorage.removeItem(NICKNAME_CACHE_KEY);
-    }
-  } catch {
-    // ignore
-  }
-}
-
 export function UserNav({
   initialNickname,
   loginLabel,
   logoutLabel,
   confirmLogoutLabel
 }: UserNavProps) {
+  // Shell SSR 已经读 cookie 解出真实昵称；layout 提升后每次路由都会重新 SSR Shell，
+  // 客户端不再发 /api/auth/session。logout 走 window.location.href 触发完整刷新，
+  // 因此 prop 变化只在 hard reload 时发生 —— derived state 完全够用。
   const [nickname, setNickname] = useState<string | null>(initialNickname);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const latestRequestId = useRef(0);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    // hydrate 后用 microtask 修正为 localStorage 缓存值，避免 SSR cookie 残留随机名导致的闪烁
-    queueMicrotask(() => {
-      if (!mountedRef.current) return;
-      const cached = readCachedNickname();
-      if (cached && cached !== initialNickname) {
-        setNickname((prev) => (prev === cached ? prev : cached));
-      }
-    });
-
-    const requestId = ++latestRequestId.current;
-    // 不在 unmount 时 abort：让响应里的 Set-Cookie 一定能落地，下次 SSR 才能拿到正确昵称
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((json: { data?: { nickname?: string } | null }) => {
-        if (!mountedRef.current || requestId !== latestRequestId.current) return;
-        const fetchedNickname = json.data?.nickname ?? null;
-        if (fetchedNickname) {
-          writeCachedNickname(fetchedNickname);
-          setNickname((prev) => (prev === fetchedNickname ? prev : fetchedNickname));
-          return;
-        }
-        writeCachedNickname(null);
-        setNickname(null);
-      })
-      .catch(() => {
-        // 网络错误时保留当前状态
-      });
-
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [initialNickname]);
 
   function handleLogout() {
-    writeCachedNickname(null);
     setNickname(null);
     setShowLogoutConfirm(false);
     fetch("/api/auth/logout", { method: "POST" }).then(() => {

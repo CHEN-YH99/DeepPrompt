@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import type {
   ApiSuccess,
   AuthUser,
@@ -604,7 +606,7 @@ export async function fetchPromptRecordById(id: string, accessToken?: string) {
   }
 }
 
-export async function fetchCurrentUser(accessToken?: string) {
+export const fetchCurrentUser = cache(async (accessToken?: string) => {
   if (!accessToken) {
     return null;
   }
@@ -623,7 +625,7 @@ export async function fetchCurrentUser(accessToken?: string) {
   } catch {
     return null;
   }
-}
+});
 
 export type CollectedPromptRecord = PromptRecord & { collectedAt: string };
 

@@ -1,12 +1,15 @@
+import { cookies } from "next/headers";
+
 import { NavLinks, type NavLinkItem } from "@/components/nav-links";
 import { UserNav } from "@/components/user-nav";
+import { fetchCurrentUser } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
 type ShellProps = {
   children: React.ReactNode;
 };
 
-export function Shell({ children }: ShellProps) {
+export async function Shell({ children }: ShellProps) {
   const dict = getDictionary();
   const navItems: NavLinkItem[] = [
     { href: "/", label: dict.nav.home },
@@ -15,6 +18,16 @@ export function Shell({ children }: ShellProps) {
     { href: "/publish", label: dict.nav.publish },
     { href: "/me/prompts", label: dict.nav.myPrompts }
   ];
+
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token")?.value;
+  const currentUser = await fetchCurrentUser(accessToken);
+  // 与 /api/auth/session 保持一致：admin/moderator 的展示昵称统一覆盖
+  const initialNickname = currentUser
+    ? currentUser.role === "admin" || currentUser.role === "moderator"
+      ? "小灰超管"
+      : currentUser.nickname
+    : null;
 
   return (
     <>
@@ -29,7 +42,7 @@ export function Shell({ children }: ShellProps) {
             <NavLinks items={navItems} />
             <UserNav
               confirmLogoutLabel={dict.nav.confirmLogout}
-              initialNickname={null}
+              initialNickname={initialNickname}
               loginLabel={dict.nav.login}
               logoutLabel={dict.nav.logout}
             />
