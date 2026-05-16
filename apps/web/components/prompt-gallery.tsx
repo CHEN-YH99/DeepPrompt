@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 
 type PromptGalleryImage = {
@@ -26,13 +27,14 @@ export function PromptGallery({ title, images }: PromptGalleryProps) {
 
   return (
     <div className="gallery-stack">
-      <div className="prompt-thumb gallery-main" style={{ minHeight: 560 }}>
-        <img
+      <div className="prompt-thumb gallery-main">
+        <Image
           alt={title}
           src={activeImage.url}
-          decoding="async"
-          loading="eager"
-          fetchPriority="high"
+          fill
+          sizes="(max-width: 720px) 100vw, 720px"
+          priority
+          style={{ objectFit: "cover" }}
         />
       </div>
       {safeImages.length > 1 ? (
@@ -45,11 +47,12 @@ export function PromptGallery({ title, images }: PromptGalleryProps) {
               onClick={() => setActiveIndex(index)}
               type="button"
             >
-              <img
+              <Image
                 alt={`${title} ${index + 1}`}
                 src={image.thumbUrl ?? image.url}
-                decoding="async"
-                loading="lazy"
+                fill
+                sizes="100px"
+                style={{ objectFit: "cover" }}
               />
             </button>
           ))}
@@ -58,3 +61,4 @@ export function PromptGallery({ title, images }: PromptGalleryProps) {
     </div>
   );
 }
+

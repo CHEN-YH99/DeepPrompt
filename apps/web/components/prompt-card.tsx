@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 
@@ -75,13 +76,14 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
             onMouseLeave={handleThumbLeave}
             onClick={handleThumbClick}
           >
-            <img
+            <Image
               alt={prompt.title}
               src={prompt.cover}
-              decoding="async"
-              loading={priority ? "eager" : "lazy"}
-              fetchPriority={priority ? "high" : "low"}
+              fill
+              sizes="(max-width: 720px) 50vw, 320px"
+              priority={priority}
               style={{
+                objectFit: "cover",
                 transform: isHovering
                   ? `translate(${thumbOffset.x}px, ${thumbOffset.y}px) scale(1.05)`
                   : "translate(0, 0) scale(1)",
@@ -137,7 +139,16 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
 
       {lightboxSrc && (
         <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-          <img className="lightbox-image" alt="" src={lightboxSrc} />
+          <div className="lightbox-image">
+            <Image
+              alt=""
+              src={lightboxSrc}
+              fill
+              sizes="90vw"
+              quality={90}
+              style={{ objectFit: "contain" }}
+            />
+          </div>
         </div>
       )}
     </>

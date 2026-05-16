@@ -612,10 +612,11 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   background: #070707;
 }
 
+.prompt-thumb:not(.gallery-main) {
+  aspect-ratio: 4 / 3;
+}
+
 .prompt-thumb img {
-  width: 100%;
-  height: auto;
-  display: block;
   filter: contrast(1.05);
 }
 
@@ -672,9 +673,9 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
 }
 
 .lightbox-image {
-  max-width: 90vw;
-  max-height: 90vh;
-  object-fit: contain;
+  position: relative;
+  width: 90vw;
+  height: 90vh;
 }
 
 .gallery-stack {

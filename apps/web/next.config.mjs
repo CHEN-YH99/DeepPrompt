@@ -11,7 +11,10 @@ const nextConfig = {
       ...(r2PublicHost
         ? [{ protocol: "https", hostname: r2PublicHost.replace(/https?:\/\//, "") }]
         : [])
-    ]
+    ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 30 * 24 * 60 * 60,
+    dangerouslyAllowSVG: false
   }
 };
 
