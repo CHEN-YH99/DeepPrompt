@@ -132,6 +132,21 @@ function invalidateModelCache() {
   modelCache.expiresAt = 0;
 }
 
+async function invalidatePromptListCache() {
+  if (!redisClient || !redisClient.isOpen) return;
+  try {
+    const keys: string[] = [];
+    for await (const key of redisClient.scanIterator({ MATCH: "prompts:list:*", COUNT: 100 })) {
+      keys.push(key);
+    }
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+    }
+  } catch {
+    // Redis 清理失败不阻塞业务，缓存会自然过期
+  }
+}
+
 const SORT_FIELDS: Record<SearchSort, string> = {
   latest: "p.created_at DESC, p.id DESC",
   trending_weekly: "p.like_count DESC, p.created_at DESC",
@@ -2153,6 +2168,8 @@ app.post(
         );
       }
     }
+
+    void invalidatePromptListCache();
 
     await writeAuditLog(req, "admin.prompts.moderate", {
       targetType: "prompt",
