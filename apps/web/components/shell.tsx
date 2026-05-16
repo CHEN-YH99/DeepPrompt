@@ -1,16 +1,14 @@
-import Link from "next/link";
-
-import { getDictionary } from "@/lib/i18n";
+import { NavLinks, type NavLinkItem } from "@/components/nav-links";
 import { UserNav } from "@/components/user-nav";
+import { getDictionary } from "@/lib/i18n";
 
 type ShellProps = {
-  activePath: string;
   children: React.ReactNode;
 };
 
-export async function Shell({ activePath, children }: ShellProps) {
+export function Shell({ children }: ShellProps) {
   const dict = getDictionary();
-  const navItems: Array<{ href: string; label: string }> = [
+  const navItems: NavLinkItem[] = [
     { href: "/", label: dict.nav.home },
     { href: "/search", label: dict.nav.search },
     { href: "/models", label: dict.nav.models },
@@ -28,16 +26,7 @@ export async function Shell({ activePath, children }: ShellProps) {
             <div className="brand-sub">{dict.common.brandSub}</div>
           </div>
           <nav className="nav-strip" aria-label={dict.nav.home}>
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                className="nav-link"
-                data-active={activePath === item.href}
-                href={item.href}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <NavLinks items={navItems} />
             <UserNav
               confirmLogoutLabel={dict.nav.confirmLogout}
               initialNickname={null}

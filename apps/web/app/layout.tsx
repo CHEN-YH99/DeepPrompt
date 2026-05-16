@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CacheSyncProvider } from "@/components/cache-sync-provider";
 import { ScrollStateProvider } from "@/components/scroll-state-provider";
+import { Shell } from "@/components/shell";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TypewriterHeadline } from "@/components/typewriter-headline";
 import { getDictionary, getLocale } from "@/lib/i18n";
@@ -63,7 +64,7 @@ export default function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        {children}
+        <Shell>{children}</Shell>
         <TelemetryProvider />
         <CacheSyncProvider />
         <ScrollStateProvider />

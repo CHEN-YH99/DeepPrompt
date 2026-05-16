@@ -1,6 +1,5 @@
 import { RegisterForm } from "@/components/register-form";
 import { SectionHeader } from "@/components/section-header";
-import { Shell } from "@/components/shell";
 import { getDictionary } from "@/lib/i18n";
 
 type RegisterPageProps = {
@@ -31,36 +30,34 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   const presetInvite = resolvedSearchParams?.invite ?? "";
 
   return (
-    <Shell activePath="/login">
-      <main className="shell">
-        <section className="page-grid two-col">
-          <div className="section" data-unit="UNIT / REG-01">
-            <div className="eyebrow">{dict.register.heroKicker}</div>
-            <h1 className="headline">
-              {dict.register.heroTitleLine1}
-              <br />
-              {dict.register.heroTitleLine2}
-              <br />
-              {dict.register.heroTitleLine3}
-            </h1>
-            <p className="lede">{dict.register.heroLede}</p>
-          </div>
-          <div className="section" data-unit="UNIT / REG-02">
-            <SectionHeader
-              eyebrow={dict.register.formEyebrow}
-              title={dict.register.formTitle}
-              copy={dict.register.formCopy}
-            />
-            <RegisterForm
-              commonLabels={dict.common}
-              errorMessage={errorMessage}
-              inviteRequired={inviteRequired}
-              labels={dict.register}
-              presetInvite={presetInvite}
-            />
-          </div>
-        </section>
-      </main>
-    </Shell>
+    <main className="shell">
+      <section className="page-grid two-col">
+        <div className="section" data-unit="UNIT / REG-01">
+          <div className="eyebrow">{dict.register.heroKicker}</div>
+          <h1 className="headline">
+            {dict.register.heroTitleLine1}
+            <br />
+            {dict.register.heroTitleLine2}
+            <br />
+            {dict.register.heroTitleLine3}
+          </h1>
+          <p className="lede">{dict.register.heroLede}</p>
+        </div>
+        <div className="section" data-unit="UNIT / REG-02">
+          <SectionHeader
+            eyebrow={dict.register.formEyebrow}
+            title={dict.register.formTitle}
+            copy={dict.register.formCopy}
+          />
+          <RegisterForm
+            commonLabels={dict.common}
+            errorMessage={errorMessage}
+            inviteRequired={inviteRequired}
+            labels={dict.register}
+            presetInvite={presetInvite}
+          />
+        </div>
+      </section>
+    </main>
   );
 }
