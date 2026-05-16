@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 const SELECTOR =
@@ -56,21 +57,31 @@ function typewrite(headline: HTMLElement) {
 }
 
 export function TypewriterHeadline() {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    let cancelled = false;
+    let rafId = 0;
+
     function run() {
+      if (cancelled) return;
       const el = document.querySelector<HTMLElement>(SELECTOR);
-      if (el) typewrite(el);
+      if (el) {
+        typewrite(el);
+        return;
+      }
+      rafId = window.requestAnimationFrame(run);
     }
 
     run();
 
-    const observer = new MutationObserver(() => run());
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      cancelled = true;
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, [pathname]);
 
   return null;
 }

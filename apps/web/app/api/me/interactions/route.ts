@@ -1,4 +1,4 @@
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
@@ -40,10 +40,7 @@ export async function POST(request: NextRequest) {
     };
     const total = type === "like" ? json.data?.like_count ?? 0 : json.data?.collect_count ?? 0;
 
-    revalidateTag("prompts:list", "max");
-    revalidateTag("prompts:search", "max");
     revalidateTag("prompts:detail", "max");
-    revalidatePath(`/prompts/${promptId}`);
 
     return NextResponse.json({ ok: true, total });
   } catch {

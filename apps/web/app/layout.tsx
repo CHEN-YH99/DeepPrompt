@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 
 import { CacheSyncProvider } from "@/components/cache-sync-provider";
 import { ScrollStateProvider } from "@/components/scroll-state-provider";
 import { Shell } from "@/components/shell";
 import { TelemetryProvider } from "@/components/telemetry-provider";
-import { TypewriterHeadline } from "@/components/typewriter-headline";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import "./globals.css";
+
+const TypewriterHeadline = dynamic(
+  () => import("@/components/typewriter-headline").then((m) => m.TypewriterHeadline)
+);
 
 const FALLBACK_BASE = "http://localhost:3000";
 

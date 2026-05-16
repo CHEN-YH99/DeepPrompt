@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { PromptCard } from "@/components/prompt-card";
 import { SectionHeader } from "@/components/section-header";
 import { featuredPrompt, fetchCurrentUser, fetchModels, fetchPromptRecords } from "@/lib/data";
@@ -7,21 +9,14 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const dict = getDictionary();
-  const [modelRecords, promptRecords] = await Promise.all([
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token")?.value;
+  const [modelRecords, promptRecords, currentUser] = await Promise.all([
     fetchModels(),
-    fetchPromptRecords({ sort: "latest" })
+    fetchPromptRecords({ sort: "latest" }),
+    fetchCurrentUser(accessToken).catch(() => null)
   ]);
   const featured = promptRecords[0] ?? featuredPrompt;
-
-  let currentUser: { nickname: string } | null = null;
-  try {
-    const { cookies } = await import("next/headers");
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
-    currentUser = await fetchCurrentUser(accessToken ?? undefined);
-  } catch {
-    // anonymous
-  }
 
   return (
     <main className="shell">
@@ -139,7 +134,7 @@ export default async function HomePage() {
           />
           <div className="prompt-grid" style={{ marginTop: 18 }}>
             {promptRecords.map((prompt, index) => (
-              <PromptCard key={prompt.id} prompt={prompt} priority={index < 2} />
+              <PromptCard key={prompt.id} prompt={prompt} priority={index < 2} labels={{ metrics: dict.common.metrics, actions: dict.common.actions }} />
             ))}
           </div>
         </div>

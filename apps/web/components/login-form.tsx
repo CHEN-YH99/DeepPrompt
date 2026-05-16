@@ -1,9 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 
-import { SliderCaptcha } from "@/components/slider-captcha";
 import type { Dictionary } from "@/lib/i18n";
+
+const SliderCaptcha = dynamic(
+  () => import("@/components/slider-captcha").then((m) => m.SliderCaptcha),
+  { ssr: false }
+);
 
 type LoginFormProps = {
   labels: Dictionary["login"];

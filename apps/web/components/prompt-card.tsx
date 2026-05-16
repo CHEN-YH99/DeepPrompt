@@ -6,7 +6,7 @@ import { useState, useCallback } from "react";
 
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
-import { getDictionary } from "@/lib/i18n";
+import type { Dictionary } from "@/lib/i18n";
 
 const MAX_EXCERPT = 40;
 
@@ -22,13 +22,18 @@ function formatDateTime(value: string): string {
   return `${y}/${mo}/${d} ${h}:${mi}:${s}`;
 }
 
+export type PromptCardLabels = {
+  metrics: Dictionary["common"]["metrics"];
+  actions: Dictionary["common"]["actions"];
+};
+
 type PromptCardProps = {
   prompt: PromptRecord;
   priority?: boolean;
+  labels: PromptCardLabels;
 };
 
-export function PromptCard({ prompt, priority }: PromptCardProps) {
-  const dict = getDictionary();
+export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
 
   const excerpt =
     prompt.excerpt.length > MAX_EXCERPT
@@ -112,13 +117,13 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
           </div>
           <div className="kpi-row">
             <span>
-              {dict.common.metrics.like} {prompt.likes}
+              {labels.metrics.like} {prompt.likes}
             </span>
             <span>
-              {dict.common.metrics.collect} {prompt.collects}
+              {labels.metrics.collect} {prompt.collects}
             </span>
             <span>
-              {dict.common.metrics.copy} {prompt.copies}
+              {labels.metrics.copy} {prompt.copies}
             </span>
           </div>
           <div className="kpi-row" style={{ marginTop: 2 }}>
@@ -126,10 +131,10 @@ export function PromptCard({ prompt, priority }: PromptCardProps) {
           </div>
           <div className="action-row" onClick={(e) => e.stopPropagation()}>
             <Link className="micro-action" href={`/prompts/${prompt.id}`}>
-              {dict.common.actions.openDossier}
+              {labels.actions.openDossier}
             </Link>
             <CopyPromptButton
-              labels={dict.common.actions}
+              labels={labels.actions}
               promptId={prompt.id}
               promptText={prompt.promptText}
             />

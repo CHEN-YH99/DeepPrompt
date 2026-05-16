@@ -60,22 +60,21 @@ export async function generateMetadata({ params }: PromptDetailPageProps): Promi
 export default async function PromptDetailPage({ params, searchParams }: PromptDetailPageProps) {
   const dict = getDictionary();
   const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const cookieStore = await cookies();
+  const [resolvedSearchParams, cookieStore] = await Promise.all([
+    searchParams ?? Promise.resolve(undefined),
+    cookies()
+  ]);
   const accessToken = cookieStore.get("access_token")?.value;
-  const [prompt, currentUser] = await Promise.all([
+  const [prompt, currentUser, relatedPrompts, models] = await Promise.all([
     fetchPromptRecordById(id, accessToken),
-    fetchCurrentUser(accessToken)
+    fetchCurrentUser(accessToken),
+    fetchRelatedPromptRecords(id),
+    fetchModels()
   ]);
 
   if (!prompt) {
     notFound();
   }
-
-  const [relatedPrompts, models] = await Promise.all([
-    fetchRelatedPromptRecords(prompt.id),
-    fetchModels()
-  ]);
   const promptModels = models.filter((model) => prompt.modelIds.includes(model.id));
   const paramEntries = Object.entries(prompt.paramsRecord);
   const statusLabelMap: Record<typeof prompt.status, string> = {

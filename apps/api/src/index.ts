@@ -346,6 +346,13 @@ function success<T>(res: Response, data: T, meta?: Record<string, unknown>) {
   res.json(body);
 }
 
+function parsePagination(query: { page?: unknown; pageSize?: unknown }) {
+  const page = Math.max(1, parseInt(String(query.page ?? "1"), 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize ?? "10"), 10) || 10));
+  const offset = (page - 1) * pageSize;
+  return { page, pageSize, offset };
+}
+
 function generateNickname(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let suffix = "";
@@ -1576,64 +1583,14 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
   }
 
   const whereClause = `WHERE ${conditions.join(" AND ")}`;
+  const { page, pageSize, offset } = parsePagination(req.query);
 
-  const result = await pgClient.query<PromptListRow>(
-    `
-    SELECT
-      p.id,
-      p.title,
-      LEFT(p.prompt_text, 180) AS excerpt,
-      p.model_ids,
-      array_to_string(p.model_ids, ' / ') AS model_label,
-      p.style_tags,
-      p.usage_tags,
-      p.color_tags,
-      u.nickname AS author,
-      p.like_count,
-      p.collect_count,
-      p.copy_count,
-      p.created_at,
-      p.status,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url
-    FROM prompts p
-    JOIN users u ON u.id = p.author_id
-    ${whereClause}
-    ORDER BY p.created_at DESC
-    LIMIT 100
-    `,
-    params
-  );
-
-  const items = await Promise.all(result.rows.map(toPromptListItem));
-  success(res, items);
-});
-
-// admin / moderator 全量列表（关卡 1 / C1.5 拆出）。
-// 之前藏在 /v1/prompts/me 里，按 role 切分支，导致接口职责混淆且没有审计与专属限流。
-app.get(
-  "/v1/admin/prompts",
-  requireRole("admin", "moderator"),
-  adminRateLimit(),
-  async (req, res) => {
-    const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
-    const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
-    const params: unknown[] = [];
-    const conditions: string[] = [];
-
-    if (allowedStatuses.includes(statusFilter as PromptStatus)) {
-      params.push(statusFilter);
-      conditions.push(`p.status = $${params.length}::prompt_status`);
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-    const result = await pgClient.query<PromptListRow>(
+  const [countResult, result] = await Promise.all([
+    pgClient.query<{ total: string }>(
+      `SELECT COUNT(*)::TEXT AS total FROM prompts p ${whereClause}`,
+      params
+    ),
+    pgClient.query<PromptListRow>(
       `
       SELECT
         p.id,
@@ -1661,16 +1618,82 @@ app.get(
       JOIN users u ON u.id = p.author_id
       ${whereClause}
       ORDER BY p.created_at DESC
-      LIMIT 100
+      LIMIT ${pageSize} OFFSET ${offset}
       `,
       params
-    );
+    )
+  ]);
 
+  const total = Number(countResult.rows[0]?.total ?? 0);
+  const items = await Promise.all(result.rows.map(toPromptListItem));
+  success(res, items, { page, pageSize, total });
+});
+
+// admin / moderator 全量列表（关卡 1 / C1.5 拆出）。
+// 之前藏在 /v1/prompts/me 里，按 role 切分支，导致接口职责混淆且没有审计与专属限流。
+app.get(
+  "/v1/admin/prompts",
+  requireRole("admin", "moderator"),
+  adminRateLimit(),
+  async (req, res) => {
+    const statusFilter = String(req.query.status ?? "").trim().toLowerCase();
+    const allowedStatuses: PromptStatus[] = ["draft", "pending", "approved", "rejected", "archived"];
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (allowedStatuses.includes(statusFilter as PromptStatus)) {
+      params.push(statusFilter);
+      conditions.push(`p.status = $${params.length}::prompt_status`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const { page, pageSize, offset } = parsePagination(req.query);
+
+    const [countResult, result] = await Promise.all([
+      pgClient.query<{ total: string }>(
+        `SELECT COUNT(*)::TEXT AS total FROM prompts p ${whereClause}`,
+        params
+      ),
+      pgClient.query<PromptListRow>(
+        `
+        SELECT
+          p.id,
+          p.title,
+          LEFT(p.prompt_text, 180) AS excerpt,
+          p.model_ids,
+          array_to_string(p.model_ids, ' / ') AS model_label,
+          p.style_tags,
+          p.usage_tags,
+          p.color_tags,
+          u.nickname AS author,
+          p.like_count,
+          p.collect_count,
+          p.copy_count,
+          p.created_at,
+          p.status,
+          (
+            SELECT pi.url
+            FROM prompt_images pi
+            WHERE pi.prompt_id = p.id
+            ORDER BY pi.sort_order ASC
+            LIMIT 1
+          ) AS cover_url
+        FROM prompts p
+        JOIN users u ON u.id = p.author_id
+        ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+        `,
+        params
+      )
+    ]);
+
+    const total = Number(countResult.rows[0]?.total ?? 0);
     const items = await Promise.all(result.rows.map(toPromptListItem));
     await writeAuditLog(req, "admin.prompts.list", {
       payload: { status: statusFilter || null, count: items.length }
     });
-    success(res, items);
+    success(res, items, { page, pageSize, total });
   }
 );
 
@@ -2089,8 +2112,76 @@ app.get(
     const statusFilter = String(req.query.status ?? "pending").trim().toLowerCase();
     const allowed: PromptStatus[] = ["pending", "approved", "rejected", "archived"];
     const target = (allowed.includes(statusFilter as PromptStatus) ? statusFilter : "pending") as PromptStatus;
+    const { page, pageSize, offset } = parsePagination(req.query);
 
-    const list = await pgClient.query<PromptListRow>(
+    const [list, counts] = await Promise.all([
+      pgClient.query<PromptListRow>(
+        `
+        SELECT
+          p.id,
+          p.title,
+          LEFT(p.prompt_text, 180) AS excerpt,
+          p.model_ids,
+          array_to_string(p.model_ids, ' / ') AS model_label,
+          p.style_tags,
+          p.usage_tags,
+          p.color_tags,
+          u.nickname AS author,
+          p.like_count,
+          p.collect_count,
+          p.copy_count,
+          p.created_at,
+          p.status,
+          (
+            SELECT pi.url
+            FROM prompt_images pi
+            WHERE pi.prompt_id = p.id
+            ORDER BY pi.sort_order ASC
+            LIMIT 1
+          ) AS cover_url
+        FROM prompts p
+        JOIN users u ON u.id = p.author_id
+        WHERE p.status = $1::prompt_status
+        ORDER BY p.created_at ASC
+        LIMIT ${pageSize} OFFSET ${offset}
+        `,
+        [target]
+      ),
+      pgClient.query<{ status: PromptStatus; count: string }>(
+        `SELECT status, COUNT(*)::TEXT AS count FROM prompts GROUP BY status`
+      )
+    ]);
+
+    const summary: Record<PromptStatus, number> = {
+      draft: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      archived: 0
+    };
+    for (const row of counts.rows) {
+      summary[row.status] = Number(row.count);
+    }
+    const total = summary[target];
+
+    const items = await Promise.all(list.rows.map(toPromptListItem));
+    await writeAuditLog(req, "admin.moderation.list", {
+      payload: { status: target, count: items.length }
+    });
+    success(res, items, { status: target, summary, page, pageSize, total } as unknown as Record<string, unknown>);
+  }
+);
+
+app.get("/v1/me/collections", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const { page, pageSize, offset } = parsePagination(req.query);
+
+  const [countResult, result] = await Promise.all([
+    pgClient.query<{ total: string }>(
+      `SELECT COUNT(*)::TEXT AS total FROM interactions i WHERE i.user_id = $1 AND i.type = 'collect'`,
+      [user.id]
+    ),
+    pgClient.query<PromptListRow & { collected_at: Date }>(
       `
       SELECT
         p.id,
@@ -2107,6 +2198,7 @@ app.get(
         p.copy_count,
         p.created_at,
         p.status,
+        i.created_at AS collected_at,
         (
           SELECT pi.url
           FROM prompt_images pi
@@ -2114,81 +2206,25 @@ app.get(
           ORDER BY pi.sort_order ASC
           LIMIT 1
         ) AS cover_url
-      FROM prompts p
+      FROM interactions i
+      JOIN prompts p ON p.id = i.prompt_id
       JOIN users u ON u.id = p.author_id
-      WHERE p.status = $1::prompt_status
-      ORDER BY p.created_at ASC
-      LIMIT 50
+      WHERE i.user_id = $1 AND i.type = 'collect'
+      ORDER BY i.created_at DESC
+      LIMIT ${pageSize} OFFSET ${offset}
       `,
-      [target]
-    );
+      [user.id]
+    )
+  ]);
 
-    const counts = await pgClient.query<{ status: PromptStatus; count: string }>(
-      `SELECT status, COUNT(*)::TEXT AS count FROM prompts GROUP BY status`
-    );
-    const summary: Record<PromptStatus, number> = {
-      draft: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      archived: 0
-    };
-    for (const row of counts.rows) {
-      summary[row.status] = Number(row.count);
-    }
-
-    const items = await Promise.all(list.rows.map(toPromptListItem));
-    await writeAuditLog(req, "admin.moderation.list", {
-      payload: { status: target, count: items.length }
-    });
-    success(res, items, { status: target, summary } as unknown as Record<string, unknown>);
-  }
-);
-
-app.get("/v1/me/collections", requireAuth, async (req, res) => {
-  const user = (req as AuthedRequest).user;
-  const result = await pgClient.query<PromptListRow & { collected_at: Date }>(
-    `
-    SELECT
-      p.id,
-      p.title,
-      LEFT(p.prompt_text, 180) AS excerpt,
-      p.model_ids,
-      array_to_string(p.model_ids, ' / ') AS model_label,
-      p.style_tags,
-      p.usage_tags,
-      p.color_tags,
-      u.nickname AS author,
-      p.like_count,
-      p.collect_count,
-      p.copy_count,
-      p.created_at,
-      p.status,
-      i.created_at AS collected_at,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url
-    FROM interactions i
-    JOIN prompts p ON p.id = i.prompt_id
-    JOIN users u ON u.id = p.author_id
-    WHERE i.user_id = $1 AND i.type = 'collect'
-    ORDER BY i.created_at DESC
-    LIMIT 100
-    `,
-    [user.id]
-  );
-
+  const total = Number(countResult.rows[0]?.total ?? 0);
   const items = await Promise.all(
     result.rows.map(async (row) => {
       const base = await toPromptListItem(row);
       return { ...base, collected_at: row.collected_at.toISOString() };
     })
   );
-  success(res, items);
+  success(res, items, { page, pageSize, total });
 });
 
 app.get("/v1/auth/oauth/:provider", (req, res) => {

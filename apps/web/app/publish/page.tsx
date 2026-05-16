@@ -1,10 +1,15 @@
+import dynamic from "next/dynamic";
+
 import { PublishForm } from "@/components/publish-form";
-import { PublishLoadingOverlay } from "@/components/publish-loading-overlay";
 import { SectionHeader } from "@/components/section-header";
 import { TagPicker } from "@/components/tag-picker";
 import { defaultModel, fetchModels } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 import { STYLE_OPTIONS, COLOR_OPTIONS, USAGE_OPTIONS } from "@/lib/tag-options";
+
+const PublishLoadingOverlay = dynamic(
+  () => import("@/components/publish-loading-overlay").then((m) => m.PublishLoadingOverlay)
+);
 
 type PublishPageProps = {
   searchParams?: Promise<{

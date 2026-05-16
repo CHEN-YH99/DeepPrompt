@@ -10,6 +10,7 @@ import type { PromptStatus } from "@deepprompt/types";
 type ModerationPageProps = {
   searchParams?: Promise<{
     status?: string;
+    page?: string;
   }>;
 };
 
@@ -28,6 +29,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const currentUser = await fetchCurrentUser(accessToken);
   const resolved = searchParams ? await searchParams : undefined;
   const targetStatus = parseStatus(resolved?.status);
+  const currentPage = Math.max(1, parseInt(resolved?.page ?? "1", 10) || 1);
 
   const tabLabelMap: Record<PromptStatus, string> = {
     draft: dict.common.status.draft,
@@ -62,7 +64,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     );
   }
 
-  const snapshot = await fetchModerationQueue(targetStatus, accessToken);
+  const snapshot = await fetchModerationQueue(targetStatus, accessToken, currentPage);
   const summary = snapshot?.summary ?? {
     pending: 0,
     approved: 0,
@@ -71,6 +73,10 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     draft: 0
   };
   const items = snapshot?.items ?? [];
+  const total = snapshot?.total ?? 0;
+  const pageSize = snapshot?.pageSize ?? 10;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
 
   return (
     <main className="shell">
@@ -152,6 +158,31 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   <ModerationActions labels={dict.moderation} promptId={prompt.id} />
                 </div>
               ))}
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="action-row" style={{ marginTop: 14 }}>
+              {safePage > 1 ? (
+                <Link className="ghost-action" href={`/admin/moderation?status=${targetStatus}&page=${safePage - 1}`}>
+                  ← 上一页
+                </Link>
+              ) : (
+                <span className="ghost-action" style={{ opacity: 0.3 }}>
+                  ← 上一页
+                </span>
+              )}
+              <span style={{ color: "var(--text-dim)", fontSize: 12, letterSpacing: "0.1em" }}>
+                {safePage} / {totalPages}
+              </span>
+              {safePage < totalPages ? (
+                <Link className="ghost-action" href={`/admin/moderation?status=${targetStatus}&page=${safePage + 1}`}>
+                  下一页 →
+                </Link>
+              ) : (
+                <span className="ghost-action" style={{ opacity: 0.3 }}>
+                  下一页 →
+                </span>
+              )}
             </div>
           )}
         </div>

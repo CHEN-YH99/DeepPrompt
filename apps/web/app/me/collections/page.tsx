@@ -8,14 +8,27 @@ import { getDictionary } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export default async function MyCollectionsPage() {
+type MyCollectionsPageProps = {
+  searchParams?: Promise<{
+    page?: string;
+  }>;
+};
+
+const PAGE_SIZE = 12;
+
+export default async function MyCollectionsPage({ searchParams }: MyCollectionsPageProps) {
   const dict = getDictionary();
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
-  const [currentUser, items] = await Promise.all([
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page ?? "1", 10) || 1);
+  const [currentUser, result] = await Promise.all([
     fetchCurrentUser(accessToken),
-    fetchMyCollections(accessToken)
+    fetchMyCollections(accessToken, currentPage, PAGE_SIZE)
   ]);
+  const { items, total } = result;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
 
   const distinctAuthors = new Set(items.map((item) => item.author)).size;
   const distinctModels = new Set(items.flatMap((item) => item.modelIds)).size;
@@ -53,7 +66,7 @@ export default async function MyCollectionsPage() {
           <div className="stats-grid" style={{ marginTop: 18 }}>
             <div className="stat-card">
               <div className="stat-label">{dict.collections.totalCollects}</div>
-              <div className="stat-value">{items.length}</div>
+              <div className="stat-value">{total}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">{dict.collections.distinctAuthors}</div>
@@ -87,8 +100,33 @@ export default async function MyCollectionsPage() {
           ) : (
             <div className="prompt-grid" style={{ marginTop: 18 }}>
               {items.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} />
+                <PromptCard key={prompt.id} prompt={prompt} labels={{ metrics: dict.common.metrics, actions: dict.common.actions }} />
               ))}
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="action-row" style={{ marginTop: 14 }}>
+              {safePage > 1 ? (
+                <Link className="ghost-action" href={`/me/collections?page=${safePage - 1}`}>
+                  ← 上一页
+                </Link>
+              ) : (
+                <span className="ghost-action" style={{ opacity: 0.3 }}>
+                  ← 上一页
+                </span>
+              )}
+              <span style={{ color: "var(--text-dim)", fontSize: 12, letterSpacing: "0.1em" }}>
+                {safePage} / {totalPages}
+              </span>
+              {safePage < totalPages ? (
+                <Link className="ghost-action" href={`/me/collections?page=${safePage + 1}`}>
+                  下一页 →
+                </Link>
+              ) : (
+                <span className="ghost-action" style={{ opacity: 0.3 }}>
+                  下一页 →
+                </span>
+              )}
             </div>
           )}
         </div>

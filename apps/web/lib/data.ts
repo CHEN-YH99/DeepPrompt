@@ -46,6 +46,13 @@ export type PromptRecord = {
   viewerCollected: boolean;
 };
 
+export type PaginatedResult<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type ModelRecord = {
   id: string;
   displayName: string;
@@ -543,50 +550,75 @@ export async function fetchRelatedPromptRecords(id: string): Promise<PromptRecor
   }
 }
 
-export async function fetchMyPromptRecords(accessToken?: string, status?: PromptStatus | null) {
+export async function fetchMyPromptRecords(
+  accessToken?: string,
+  status?: PromptStatus | null,
+  page = 1,
+  pageSize = 10
+): Promise<PaginatedResult<PromptRecord>> {
   if (!accessToken) {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 
   try {
-    const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
-    const response = await fetch(`${apiBaseUrl}/v1/prompts/me${suffix}`, {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+    const response = await fetch(`${apiBaseUrl}/v1/prompts/me?${params}`, {
       headers: {
         authorization: `Bearer ${accessToken}`
       },
       cache: "no-store"
     });
     if (!response.ok) {
-      return [];
+      return { items: [], total: 0, page, pageSize };
     }
-    const data = await readApiData<PromptListItem[]>(response);
-    return data.map(promptListItemToPromptRecord);
+    const json = await readApiResponse<PromptListItem[], { page: number; pageSize: number; total: number }>(response);
+    return {
+      items: json.data.map(promptListItemToPromptRecord),
+      total: json.meta?.total ?? 0,
+      page: json.meta?.page ?? page,
+      pageSize: json.meta?.pageSize ?? pageSize
+    };
   } catch {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 }
 
-// admin / moderator 用,拉取全量 prompts(关卡 1 / C1.5 拆分后专属端点)。
-export async function fetchAdminPromptRecords(accessToken?: string, status?: PromptStatus | null) {
+export async function fetchAdminPromptRecords(
+  accessToken?: string,
+  status?: PromptStatus | null,
+  page = 1,
+  pageSize = 10
+): Promise<PaginatedResult<PromptRecord>> {
   if (!accessToken) {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 
   try {
-    const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
-    const response = await fetch(`${apiBaseUrl}/v1/admin/prompts${suffix}`, {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+    const response = await fetch(`${apiBaseUrl}/v1/admin/prompts?${params}`, {
       headers: {
         authorization: `Bearer ${accessToken}`
       },
       cache: "no-store"
     });
     if (!response.ok) {
-      return [];
+      return { items: [], total: 0, page, pageSize };
     }
-    const data = await readApiData<PromptListItem[]>(response);
-    return data.map(promptListItemToPromptRecord);
+    const json = await readApiResponse<PromptListItem[], { page: number; pageSize: number; total: number }>(response);
+    return {
+      items: json.data.map(promptListItemToPromptRecord),
+      total: json.meta?.total ?? 0,
+      page: json.meta?.page ?? page,
+      pageSize: json.meta?.pageSize ?? pageSize
+    };
   } catch {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 }
 
@@ -629,28 +661,41 @@ export const fetchCurrentUser = cache(async (accessToken?: string) => {
 
 export type CollectedPromptRecord = PromptRecord & { collectedAt: string };
 
-export async function fetchMyCollections(accessToken?: string): Promise<CollectedPromptRecord[]> {
+export async function fetchMyCollections(
+  accessToken?: string,
+  page = 1,
+  pageSize = 10
+): Promise<PaginatedResult<CollectedPromptRecord>> {
   if (!accessToken) {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 
   try {
-    const response = await fetch(`${apiBaseUrl}/v1/me/collections`, {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+    const response = await fetch(`${apiBaseUrl}/v1/me/collections?${params}`, {
       headers: {
         authorization: `Bearer ${accessToken}`
       },
       cache: "no-store"
     });
     if (!response.ok) {
-      return [];
+      return { items: [], total: 0, page, pageSize };
     }
-    const data = await readApiData<CollectionEntry[]>(response);
-    return data.map((entry) => ({
+    const json = await readApiResponse<CollectionEntry[], { page: number; pageSize: number; total: number }>(response);
+    const items = json.data.map((entry) => ({
       ...promptListItemToPromptRecord(entry),
       collectedAt: entry.collected_at
     }));
+    return {
+      items,
+      total: json.meta?.total ?? 0,
+      page: json.meta?.page ?? page,
+      pageSize: json.meta?.pageSize ?? pageSize
+    };
   } catch {
-    return [];
+    return { items: [], total: 0, page, pageSize };
   }
 }
 
@@ -660,6 +705,9 @@ export type ModerationSnapshot = {
   items: PromptRecord[];
   status: PromptStatus;
   summary: ModerationSummary;
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 const EMPTY_SUMMARY: ModerationSummary = {
@@ -672,14 +720,20 @@ const EMPTY_SUMMARY: ModerationSummary = {
 
 export async function fetchModerationQueue(
   status: PromptStatus,
-  accessToken?: string
+  accessToken?: string,
+  page = 1,
+  pageSize = 10
 ): Promise<ModerationSnapshot | null> {
   if (!accessToken) {
     return null;
   }
   try {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
     const response = await fetch(
-      `${apiBaseUrl}/v1/admin/moderation?status=${encodeURIComponent(status)}`,
+      `${apiBaseUrl}/v1/admin/moderation?${params}`,
       {
         headers: {
           authorization: `Bearer ${accessToken}`
@@ -690,13 +744,16 @@ export async function fetchModerationQueue(
     if (!response.ok) {
       return null;
     }
-    const json = await readApiResponse<PromptListItem[], { status: PromptStatus; summary: ModerationSummary }>(
+    const json = await readApiResponse<PromptListItem[], { status: PromptStatus; summary: ModerationSummary; page: number; pageSize: number; total: number }>(
       response
     );
     return {
       items: json.data.map(promptListItemToPromptRecord),
       status: json.meta?.status ?? status,
-      summary: json.meta?.summary ?? EMPTY_SUMMARY
+      summary: json.meta?.summary ?? EMPTY_SUMMARY,
+      total: json.meta?.total ?? 0,
+      page: json.meta?.page ?? page,
+      pageSize: json.meta?.pageSize ?? pageSize
     };
   } catch {
     return null;

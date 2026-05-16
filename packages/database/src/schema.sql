@@ -118,6 +118,21 @@ WHERE status = 'approved' AND is_featured = TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_prompts_search ON prompts USING GIN (search_vector);
 
+CREATE INDEX IF NOT EXISTS idx_prompts_copy_count
+ON prompts (copy_count DESC)
+WHERE status = 'approved';
+
+CREATE INDEX IF NOT EXISTS idx_prompts_like_count
+ON prompts (like_count DESC)
+WHERE status = 'approved';
+
+CREATE INDEX IF NOT EXISTS idx_prompts_collect_count
+ON prompts (collect_count DESC)
+WHERE status = 'approved';
+
+CREATE INDEX IF NOT EXISTS idx_prompts_usage_tags ON prompts USING GIN (usage_tags);
+CREATE INDEX IF NOT EXISTS idx_prompts_color_tags ON prompts USING GIN (color_tags);
+
 CREATE OR REPLACE FUNCTION update_prompt_search_vector()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { dictionaries, type Dictionary, type Locale } from "./dictionaries";
 
 export type { Locale, Dictionary } from "./dictionaries";
@@ -16,13 +18,13 @@ function readEnvLocale(): Locale | null {
   return null;
 }
 
-export function getLocale(): Locale {
+export const getLocale = cache((): Locale => {
   return readEnvLocale() ?? FALLBACK_LOCALE;
-}
+});
 
-export function getDictionary(locale?: Locale): Dictionary {
+export const getDictionary = cache((locale?: Locale): Dictionary => {
   return dictionaries[locale ?? getLocale()] ?? dictionaries[FALLBACK_LOCALE];
-}
+});
 
 export function applyVars(template: string, vars?: Record<string, string | number>) {
   if (!vars) {

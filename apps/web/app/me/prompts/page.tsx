@@ -30,20 +30,18 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
   const tab = parseTab(resolvedSearchParams?.status);
   const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page ?? "1", 10) || 1);
   const statusFilter: PromptStatus | null = tab === "all" ? null : (tab as PromptStatus);
-  // 先拿当前用户身份再决定列表来源；普通用户调 /v1/prompts/me，admin/moderator 调 /v1/admin/prompts。
-  // 接口已按 role 拆分,/v1/prompts/me 不再返回他人内容(关卡 1 / C1.5)。
   const currentUser = await fetchCurrentUser(accessToken);
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "moderator";
-  const allRecords = isAdmin
-    ? await fetchAdminPromptRecords(accessToken, statusFilter)
-    : await fetchMyPromptRecords(accessToken, statusFilter);
-  const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
+  const result = isAdmin
+    ? await fetchAdminPromptRecords(accessToken, statusFilter, currentPage, PAGE_SIZE)
+    : await fetchMyPromptRecords(accessToken, statusFilter, currentPage, PAGE_SIZE);
+  const { items: promptRecords, total } = result;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const promptRecords = allRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const createdMessage =
     resolvedSearchParams?.created === "1" ? dict.myPrompts.submittedForReviewNotice : "";
-  const totalCopies = allRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
-  const totalCollects = allRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
+  const totalCopies = promptRecords.reduce((sum, prompt) => sum + prompt.copies, 0);
+  const totalCollects = promptRecords.reduce((sum, prompt) => sum + prompt.collects, 0);
 
   const statusLabelMap: Record<PromptStatus, string> = {
     approved: dict.common.status.approved,
@@ -95,7 +93,7 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
           <div className="metric-board" style={{ marginTop: 18 }}>
             <div>
               <div className="mini-label">{dict.myPrompts.totalPrompts}</div>
-              <div className="card-value">{allRecords.length}</div>
+              <div className="card-value">{total}</div>
             </div>
             <div>
               <div className="mini-label">{dict.myPrompts.totalCopies}</div>
