@@ -1338,6 +1338,34 @@ app.post("/v1/models", requireAuth, async (req, res) => {
   }
 });
 
+const PROMPT_LIST_CACHE_TTL_SEC = 30;
+
+type PromptListCachePayload = {
+  data: PromptListItem[];
+  meta: PromptListMeta;
+};
+
+function buildPromptListCacheKey(parts: {
+  q: string;
+  modelIds: string[];
+  styleTags: string[];
+  colorTags: string[];
+  usageTags: string[];
+  sort: SearchSort;
+  limit: number;
+}): string {
+  const normalized = JSON.stringify({
+    q: parts.q,
+    modelIds: [...parts.modelIds].sort(),
+    styleTags: [...parts.styleTags].sort(),
+    colorTags: [...parts.colorTags].sort(),
+    usageTags: [...parts.usageTags].sort(),
+    sort: parts.sort,
+    limit: parts.limit
+  });
+  return `prompts:list:${crypto.createHash("md5").update(normalized).digest("hex")}`;
+}
+
 app.get("/v1/prompts", async (req, res) => {
   const startedAt = Date.now();
   const q = String(req.query.q ?? "").trim();
@@ -1350,6 +1378,31 @@ app.get("/v1/prompts", async (req, res) => {
   const sort = parseSort(req.query.sort);
   const limitRaw = Number(req.query.limit);
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(60, Math.floor(limitRaw)) : 24;
+
+  const cacheKey = buildPromptListCacheKey({
+    q,
+    modelIds,
+    styleTags,
+    colorTags,
+    usageTags,
+    sort,
+    limit
+  });
+
+  if (redisClient && redisClient.isOpen) {
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        const payload = JSON.parse(cached) as PromptListCachePayload;
+        res.setHeader("X-Cache", "HIT");
+        setPublicCache(res, PROMPT_LIST_CACHE_TTL_SEC);
+        res.json(payload);
+        return;
+      }
+    } catch {
+      // Redis 读失败时静默降级到 DB
+    }
+  }
 
   const params: unknown[] = [];
   const conditions: string[] = ["p.status = 'approved'"];
@@ -1385,83 +1438,75 @@ app.get("/v1/prompts", async (req, res) => {
   const orderSql = SORT_FIELDS[sort];
   params.push(limit);
   const limitParamIndex = params.length;
-
-  const listResult = await pgClient.query<PromptListRow>(
-    `
-    SELECT
-      p.id,
-      p.title,
-      LEFT(p.prompt_text, 180) AS excerpt,
-      p.model_ids,
-      array_to_string(p.model_ids, ' / ') AS model_label,
-      p.style_tags,
-      p.usage_tags,
-      p.color_tags,
-      u.nickname AS author,
-      p.like_count,
-      p.collect_count,
-      p.copy_count,
-      p.created_at,
-      p.status,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url
-    FROM prompts p
-    JOIN users u ON u.id = p.author_id
-    WHERE ${whereSql}
-    ORDER BY ${orderSql}
-    LIMIT $${limitParamIndex}
-    `,
-    params
-  );
-
   const facetParams = params.slice(0, limitParamIndex - 1);
-  const [modelFacets, styleFacets, colorFacets, usageFacets, totalRow] = await Promise.all([
-    pgClient.query<SearchFacetBucket>(
+
+  // facets 合并为一条往返：4 个 UNNEST 子查询 UNION ALL 后用 ROW_NUMBER 截断
+  // （model 取前 12，其余三个 facet 各取前 16）。
+  const [listResult, facetResult, totalRow] = await Promise.all([
+    pgClient.query<PromptListRow>(
       `
-      SELECT model AS value, COUNT(*)::INT AS count
-      FROM prompts p, UNNEST(p.model_ids) AS model
+      SELECT
+        p.id,
+        p.title,
+        LEFT(p.prompt_text, 180) AS excerpt,
+        p.model_ids,
+        array_to_string(p.model_ids, ' / ') AS model_label,
+        p.style_tags,
+        p.usage_tags,
+        p.color_tags,
+        u.nickname AS author,
+        p.like_count,
+        p.collect_count,
+        p.copy_count,
+        p.created_at,
+        p.status,
+        (
+          SELECT pi.url
+          FROM prompt_images pi
+          WHERE pi.prompt_id = p.id
+          ORDER BY pi.sort_order ASC
+          LIMIT 1
+        ) AS cover_url
+      FROM prompts p
+      JOIN users u ON u.id = p.author_id
       WHERE ${whereSql}
-      GROUP BY model
-      ORDER BY count DESC, model ASC
-      LIMIT 12
+      ORDER BY ${orderSql}
+      LIMIT $${limitParamIndex}
       `,
-      facetParams
+      params
     ),
-    pgClient.query<SearchFacetBucket>(
+    pgClient.query<{ facet: string; value: string; count: number }>(
       `
-      SELECT tag AS value, COUNT(*)::INT AS count
-      FROM prompts p, UNNEST(p.style_tags) AS tag
-      WHERE ${whereSql}
-      GROUP BY tag
-      ORDER BY count DESC, tag ASC
-      LIMIT 16
-      `,
-      facetParams
-    ),
-    pgClient.query<SearchFacetBucket>(
-      `
-      SELECT tag AS value, COUNT(*)::INT AS count
-      FROM prompts p, UNNEST(p.color_tags) AS tag
-      WHERE ${whereSql}
-      GROUP BY tag
-      ORDER BY count DESC, tag ASC
-      LIMIT 16
-      `,
-      facetParams
-    ),
-    pgClient.query<SearchFacetBucket>(
-      `
-      SELECT tag AS value, COUNT(*)::INT AS count
-      FROM prompts p, UNNEST(p.usage_tags) AS tag
-      WHERE ${whereSql}
-      GROUP BY tag
-      ORDER BY count DESC, tag ASC
-      LIMIT 16
+      WITH facet_rows AS (
+        SELECT 'model_ids'::TEXT AS facet, model::TEXT AS value, COUNT(*)::INT AS count
+        FROM prompts p, UNNEST(p.model_ids) AS model
+        WHERE ${whereSql}
+        GROUP BY model
+        UNION ALL
+        SELECT 'style_tags'::TEXT, tag::TEXT, COUNT(*)::INT
+        FROM prompts p, UNNEST(p.style_tags) AS tag
+        WHERE ${whereSql}
+        GROUP BY tag
+        UNION ALL
+        SELECT 'color_tags'::TEXT, tag::TEXT, COUNT(*)::INT
+        FROM prompts p, UNNEST(p.color_tags) AS tag
+        WHERE ${whereSql}
+        GROUP BY tag
+        UNION ALL
+        SELECT 'usage_tags'::TEXT, tag::TEXT, COUNT(*)::INT
+        FROM prompts p, UNNEST(p.usage_tags) AS tag
+        WHERE ${whereSql}
+        GROUP BY tag
+      ), ranked AS (
+        SELECT facet, value, count,
+               ROW_NUMBER() OVER (PARTITION BY facet ORDER BY count DESC, value ASC) AS rn
+        FROM facet_rows
+      )
+      SELECT facet, value, count
+      FROM ranked
+      WHERE (facet = 'model_ids' AND rn <= 12)
+         OR (facet IN ('style_tags', 'color_tags', 'usage_tags') AND rn <= 16)
+      ORDER BY facet, rn
       `,
       facetParams
     ),
@@ -1471,21 +1516,41 @@ app.get("/v1/prompts", async (req, res) => {
     )
   ]);
 
+  const facets = {
+    model_ids: [] as SearchFacetBucket[],
+    style_tags: [] as SearchFacetBucket[],
+    color_tags: [] as SearchFacetBucket[],
+    usage_tags: [] as SearchFacetBucket[]
+  };
+  for (const row of facetResult.rows) {
+    const bucket: SearchFacetBucket = { value: row.value, count: row.count };
+    if (row.facet === "model_ids") facets.model_ids.push(bucket);
+    else if (row.facet === "style_tags") facets.style_tags.push(bucket);
+    else if (row.facet === "color_tags") facets.color_tags.push(bucket);
+    else if (row.facet === "usage_tags") facets.usage_tags.push(bucket);
+  }
+
   const items = await Promise.all(listResult.rows.map(toPromptListItem));
   const meta: PromptListMeta = {
     total: Number(totalRow.rows[0]?.total ?? items.length),
     took_ms: Date.now() - startedAt,
     sort,
-    facets: {
-      model_ids: modelFacets.rows,
-      style_tags: styleFacets.rows,
-      color_tags: colorFacets.rows,
-      usage_tags: usageFacets.rows
-    }
+    facets
   };
 
-  setPublicCache(res, 30);
-  success(res, items, meta as unknown as Record<string, unknown>);
+  const responsePayload: PromptListCachePayload = { data: items, meta };
+
+  if (redisClient && redisClient.isOpen) {
+    redisClient
+      .set(cacheKey, JSON.stringify(responsePayload), { EX: PROMPT_LIST_CACHE_TTL_SEC })
+      .catch(() => {
+        // Redis 写失败不影响响应
+      });
+  }
+
+  res.setHeader("X-Cache", "MISS");
+  setPublicCache(res, PROMPT_LIST_CACHE_TTL_SEC);
+  res.json(responsePayload);
 });
 
 app.get("/v1/prompts/me", requireAuth, async (req, res) => {
