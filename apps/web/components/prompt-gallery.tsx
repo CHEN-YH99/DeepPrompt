@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 
+import { isSafeImageUrl } from "@/lib/safe-url";
+
 type PromptGalleryImage = {
   url: string;
   thumbUrl?: string | null;
@@ -15,7 +17,7 @@ type PromptGalleryProps = {
 
 export function PromptGallery({ title, images }: PromptGalleryProps) {
   const safeImages = useMemo(
-    () => images.filter((image) => image.url.trim().length > 0),
+    () => images.filter((image) => isSafeImageUrl(image.url)),
     [images]
   );
   const [activeIndex, setActiveIndex] = useState(0);

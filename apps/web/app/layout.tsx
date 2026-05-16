@@ -7,6 +7,8 @@ import { Shell } from "@/components/shell";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import "./globals.css";
+import "./typewriter.css";
+import "./prompt-card.css";
 
 const TypewriterHeadline = dynamic(
   () => import("@/components/typewriter-headline").then((m) => m.TypewriterHeadline)

@@ -1,6 +1,7 @@
 import { LoginForm } from "@/components/login-form";
 import { SectionHeader } from "@/components/section-header";
 import { getDictionary } from "@/lib/i18n";
+import "../captcha.css";
 
 type LoginPageProps = {
   searchParams?: Promise<{

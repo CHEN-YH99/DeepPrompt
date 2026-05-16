@@ -6,6 +6,7 @@ import { TagPicker } from "@/components/tag-picker";
 import { defaultModel, fetchModels } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 import { STYLE_OPTIONS, COLOR_OPTIONS, USAGE_OPTIONS } from "@/lib/tag-options";
+import "../publish-loading.css";
 
 const PublishLoadingOverlay = dynamic(
   () => import("@/components/publish-loading-overlay").then((m) => m.PublishLoadingOverlay)

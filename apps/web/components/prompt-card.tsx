@@ -7,6 +7,7 @@ import { useState, useCallback } from "react";
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
 import type { Dictionary } from "@/lib/i18n";
+import { isSafeImageUrl } from "@/lib/safe-url";
 
 const MAX_EXCERPT = 40;
 
@@ -34,6 +35,7 @@ type PromptCardProps = {
 };
 
 export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
+  const coverUrl = isSafeImageUrl(prompt.cover) ? prompt.cover : "/placeholder.svg";
 
   const excerpt =
     prompt.excerpt.length > MAX_EXCERPT
@@ -65,9 +67,9 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
     (e: React.MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
-      setLightboxSrc(prompt.cover);
+      setLightboxSrc(coverUrl);
     },
-    [prompt.cover]
+    [coverUrl]
   );
 
   return (
@@ -83,7 +85,7 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
           >
             <Image
               alt={prompt.title}
-              src={prompt.cover}
+              src={coverUrl}
               fill
               sizes="(max-width: 720px) 50vw, 320px"
               priority={priority}

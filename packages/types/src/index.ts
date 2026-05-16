@@ -10,6 +10,25 @@ export type ApiError = {
   };
 };
 
+export const ErrorCode = {
+  AUTH_TOKEN_EXPIRED: "AUTH_TOKEN_EXPIRED",
+  AUTH_TOKEN_INVALID: "AUTH_TOKEN_INVALID",
+  AUTH_TOKEN_REVOKED: "AUTH_TOKEN_REVOKED",
+  AUTH_NEED_LOGIN: "AUTH_NEED_LOGIN",
+  AUTH_ACCOUNT_LOCKED: "AUTH_ACCOUNT_LOCKED",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  FORBIDDEN: "FORBIDDEN",
+  BAD_REQUEST: "BAD_REQUEST",
+  NOT_FOUND: "NOT_FOUND",
+  CONFLICT: "CONFLICT",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  CSRF_ORIGIN_REJECTED: "CSRF_ORIGIN_REJECTED",
+  CAPTCHA_REQUIRED: "CAPTCHA_REQUIRED",
+  INVITE_REQUIRED: "INVITE_REQUIRED"
+} as const;
+
+export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
+
 export type UserRole = "user" | "creator" | "moderator" | "admin";
 
 export type AuthUser = {

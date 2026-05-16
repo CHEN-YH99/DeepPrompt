@@ -117,7 +117,9 @@ export default async function PromptDetailPage({ params, searchParams }: PromptD
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c")
+        }}
       />
       <section className="page-grid">
         <div className="section" data-unit="UNIT / DETAIL-01">

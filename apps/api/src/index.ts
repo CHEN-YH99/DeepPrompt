@@ -15,6 +15,7 @@ import dotenv from "dotenv";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import jwt from "jsonwebtoken";
+import type { ZodSchema } from "zod";
 import type {
   ApiError,
   ApiSuccess,
@@ -34,6 +35,7 @@ import type {
 } from "@deepprompt/types";
 import { Pool } from "pg";
 import { createClient, type RedisClientType } from "redis";
+import { loginSchema, registerSchema, telemetrySchema } from "./schemas.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFile);
@@ -190,6 +192,12 @@ function requireSecret(name: string): string {
 
 const jwtSecret = requireSecret("JWT_SECRET");
 const jwtRefreshSecret = requireSecret("JWT_REFRESH_SECRET");
+const refreshTokenPepper = process.env.REFRESH_TOKEN_PEPPER ?? "";
+if (isProduction && refreshTokenPepper.length < 32) {
+  throw new Error(
+    "REFRESH_TOKEN_PEPPER is missing or shorter than 32 chars in production. Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+  );
+}
 const accessTokenExpiresInSeconds = 15 * 60;
 const refreshTokenExpiresInSeconds = 7 * 24 * 60 * 60;
 
@@ -227,10 +235,16 @@ const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:3000")
   .map((value) => value.trim())
   .filter((value) => value.length > 0);
 
+if (isProduction && (allowedOrigins.length === 0 || !allowedOrigins.every((o) => o.startsWith("https://")))) {
+  throw new Error("WEB_ORIGIN must be set and use https:// in production");
+}
+
 app.use(
   cors({
     origin: allowedOrigins,
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 app.use(express.json({ limit: "256kb" }));
@@ -353,6 +367,19 @@ function parsePagination(query: { page?: unknown; pageSize?: unknown }) {
   return { page, pageSize, offset };
 }
 
+function validate<T>(schema: ZodSchema<T>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      const firstIssue = result.error.issues[0];
+      fail(res, 400, "BAD_REQUEST", firstIssue?.message ?? "Invalid request body");
+      return;
+    }
+    (req as Request & { validated: T }).validated = result.data;
+    next();
+  };
+}
+
 function generateNickname(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let suffix = "";
@@ -410,7 +437,40 @@ function signRefreshToken(user: AuthUser) {
 }
 
 function hashToken(token: string) {
+  if (refreshTokenPepper) {
+    return crypto.createHmac("sha256", refreshTokenPepper).update(token).digest("hex");
+  }
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function hashTokenLegacy(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+const WEAK_PASSWORDS = new Set([
+  "password123", "123456789a", "qwerty1234", "abc12345678", "iloveyou123",
+  "admin12345", "letmein1234", "welcome123", "monkey12345", "dragon12345",
+  "master12345", "1234567890", "password1234", "qwertyuiop1", "football123",
+  "baseball123", "shadow12345", "michael1234", "trustno1234", "sunshine123",
+  "princess123", "charlie1234", "thomas12345", "jordan12345", "hunter12345",
+  "ranger12345", "buster12345", "killer12345", "george12345", "robert12345",
+  "abcdefghij", "1q2w3e4r5t", "zxcvbnm1234", "passw0rd123", "p@ssword123"
+]);
+
+function validatePasswordStrength(password: string): string | null {
+  if (!password || password.length < 10) {
+    return "Password must be at least 10 characters";
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return "Password must contain at least one letter";
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Password must contain at least one digit";
+  }
+  if (WEAK_PASSWORDS.has(password.toLowerCase())) {
+    return "Password is too common, please choose a stronger one";
+  }
+  return null;
 }
 
 // 校验 Cloudflare Turnstile token；未配置 secret 时按 fail-closed 处理。
@@ -527,17 +587,20 @@ async function saveSession(
 
 async function revokeSessionByToken(refreshToken: string) {
   const refreshTokenHash = hashToken(refreshToken);
+  const legacyHash = refreshTokenPepper ? hashTokenLegacy(refreshToken) : null;
+  const hashes = legacyHash ? [refreshTokenHash, legacyHash] : [refreshTokenHash];
   await pgClient.query(
     `
     UPDATE auth_sessions
     SET revoked_at = NOW()
-    WHERE refresh_token_hash = $1 AND revoked_at IS NULL
+    WHERE refresh_token_hash = ANY($1) AND revoked_at IS NULL
     `,
-    [refreshTokenHash]
+    [hashes]
   );
 
   if (redisClient) {
     await redisClient.del(`user:session:${refreshTokenHash}`);
+    if (legacyHash) await redisClient.del(`user:session:${legacyHash}`);
   }
 }
 
@@ -625,8 +688,12 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     (req as AuthedRequest).user = user;
     next();
-  } catch {
-    fail(res, 401, "UNAUTHORIZED", "Invalid or expired access token");
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      fail(res, 401, "AUTH_TOKEN_EXPIRED", "Access token has expired");
+    } else {
+      fail(res, 401, "AUTH_TOKEN_INVALID", "Invalid access token");
+    }
   }
 }
 
@@ -798,13 +865,7 @@ async function getPromptDetail(promptId: string) {
       p.copy_count,
       p.created_at,
       p.status,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url,
+      p.cover_url,
       p.prompt_text,
       p.negative_prompt,
       p.params_json,
@@ -868,7 +929,7 @@ app.get("/ready", async (_req, res) => {
   }
 });
 
-app.post("/v1/auth/register", async (req, res) => {
+app.post("/v1/auth/register", validate(registerSchema), async (req, res) => {
   const body = (req.body ?? {}) as RegisterRequest & { invite_code?: string };
   const password = body.password;
   const nickname = body.nickname?.trim() || generateNickname();
@@ -880,6 +941,12 @@ app.post("/v1/auth/register", async (req, res) => {
 
   if (!password || password.length < 8) {
     fail(res, 400, "BAD_REQUEST", "Password must be at least 8 characters");
+    return;
+  }
+
+  const passwordError = validatePasswordStrength(password);
+  if (passwordError) {
+    fail(res, 400, "BAD_REQUEST", passwordError);
     return;
   }
 
@@ -982,7 +1049,7 @@ app.get("/v1/auth/register", (_req, res) => {
   fail(res, 405, "METHOD_NOT_ALLOWED", "Use POST /v1/auth/register");
 });
 
-app.post("/v1/auth/login", async (req, res) => {
+app.post("/v1/auth/login", validate(loginSchema), async (req, res) => {
   const { account, password, captcha_token: captchaToken } = req.body as {
     account?: string;
     password?: string;
@@ -1096,18 +1163,26 @@ app.post("/v1/auth/refresh", async (req, res) => {
   }
 
   const refreshTokenHash = hashToken(refreshToken);
+  const legacyHash = refreshTokenPepper ? hashTokenLegacy(refreshToken) : null;
   const sessionResult = await pgClient.query<{
     id: string;
     user_id: string;
     revoked_at: Date | null;
   }>(
-    `
-    SELECT id, user_id, revoked_at
-    FROM auth_sessions
-    WHERE refresh_token_hash = $1 AND expires_at > NOW()
-    LIMIT 1
-    `,
-    [refreshTokenHash]
+    legacyHash
+      ? `
+        SELECT id, user_id, revoked_at
+        FROM auth_sessions
+        WHERE refresh_token_hash IN ($1, $2) AND expires_at > NOW()
+        LIMIT 1
+        `
+      : `
+        SELECT id, user_id, revoked_at
+        FROM auth_sessions
+        WHERE refresh_token_hash = $1 AND expires_at > NOW()
+        LIMIT 1
+        `,
+    legacyHash ? [refreshTokenHash, legacyHash] : [refreshTokenHash]
   );
 
   const session = sessionResult.rows[0];
@@ -1477,13 +1552,7 @@ app.get("/v1/prompts", async (req, res) => {
         p.copy_count,
         p.created_at,
         p.status,
-        (
-          SELECT pi.url
-          FROM prompt_images pi
-          WHERE pi.prompt_id = p.id
-          ORDER BY pi.sort_order ASC
-          LIMIT 1
-        ) AS cover_url
+        p.cover_url
       FROM prompts p
       JOIN users u ON u.id = p.author_id
       WHERE ${whereSql}
@@ -1607,13 +1676,7 @@ app.get("/v1/prompts/me", requireAuth, async (req, res) => {
         p.copy_count,
         p.created_at,
         p.status,
-        (
-          SELECT pi.url
-          FROM prompt_images pi
-          WHERE pi.prompt_id = p.id
-          ORDER BY pi.sort_order ASC
-          LIMIT 1
-        ) AS cover_url
+        p.cover_url
       FROM prompts p
       JOIN users u ON u.id = p.author_id
       ${whereClause}
@@ -1671,13 +1734,7 @@ app.get(
           p.copy_count,
           p.created_at,
           p.status,
-          (
-            SELECT pi.url
-            FROM prompt_images pi
-            WHERE pi.prompt_id = p.id
-            ORDER BY pi.sort_order ASC
-            LIMIT 1
-          ) AS cover_url
+          p.cover_url
         FROM prompts p
         JOIN users u ON u.id = p.author_id
         ${whereClause}
@@ -1762,13 +1819,7 @@ app.get("/v1/prompts/:id/related", async (req, res) => {
       p.copy_count,
       p.created_at,
       p.status,
-      (
-        SELECT pi.url
-        FROM prompt_images pi
-        WHERE pi.prompt_id = p.id
-        ORDER BY pi.sort_order ASC
-        LIMIT 1
-      ) AS cover_url,
+      p.cover_url,
       (
         cardinality(ARRAY(SELECT UNNEST(p.model_ids) INTERSECT SELECT UNNEST($2::TEXT[])))
         + cardinality(ARRAY(SELECT UNNEST(p.style_tags) INTERSECT SELECT UNNEST($3::VARCHAR[])))
@@ -1822,7 +1873,15 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
           height: Number(image.height ?? 800),
           file_size: Number(image.file_size ?? 0)
         }))
-        .filter((image) => image.url)
+        .filter((image) => {
+          if (!image.url) return false;
+          try {
+            const parsed = new URL(image.url);
+            return parsed.protocol === "http:" || parsed.protocol === "https:";
+          } catch {
+            return image.url.startsWith("/") && !image.url.startsWith("//");
+          }
+        })
         .slice(0, 6)
     : [];
 
@@ -2132,13 +2191,7 @@ app.get(
           p.copy_count,
           p.created_at,
           p.status,
-          (
-            SELECT pi.url
-            FROM prompt_images pi
-            WHERE pi.prompt_id = p.id
-            ORDER BY pi.sort_order ASC
-            LIMIT 1
-          ) AS cover_url
+          p.cover_url
         FROM prompts p
         JOIN users u ON u.id = p.author_id
         WHERE p.status = $1::prompt_status
@@ -2199,13 +2252,7 @@ app.get("/v1/me/collections", requireAuth, async (req, res) => {
         p.created_at,
         p.status,
         i.created_at AS collected_at,
-        (
-          SELECT pi.url
-          FROM prompt_images pi
-          WHERE pi.prompt_id = p.id
-          ORDER BY pi.sort_order ASC
-          LIMIT 1
-        ) AS cover_url
+        p.cover_url
       FROM interactions i
       JOIN prompts p ON p.id = i.prompt_id
       JOIN users u ON u.id = p.author_id
@@ -2251,7 +2298,7 @@ type TelemetryBody = {
   payload?: Record<string, unknown>;
 };
 
-app.post("/v1/telemetry", async (req, res) => {
+app.post("/v1/telemetry", validate(telemetrySchema), async (req, res) => {
   const body = (req.body ?? {}) as TelemetryBody;
   const kind = body.kind === "error" ? "error" : "event";
   const name = (body.name ?? "").trim().slice(0, 96);
@@ -2471,7 +2518,7 @@ app.post("/v1/uploads/presign", requireAuth, uploadLimiter, async (req, res) => 
     return;
   }
   const body = (req.body ?? {}) as { filename?: string; content_type?: string };
-  const filename = (body.filename ?? "").trim();
+  const filename = (body.filename ?? "").trim().replace(/\0/g, "");
   const contentType = (body.content_type ?? "image/jpeg").trim();
   if (!filename) {
     fail(res, 400, "BAD_REQUEST", "filename is required");
