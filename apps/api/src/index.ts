@@ -8,10 +8,12 @@ import {
   PutObjectCommand
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type NextFunction, type Request, type Response } from "express";
+import helmet from "helmet";
 import jwt from "jsonwebtoken";
 import type {
   ApiError,
@@ -167,6 +169,14 @@ const app = express();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3010);
 const isProduction = process.env.NODE_ENV === "production";
 const cookieSecure = isProduction;
+
+// 网络中间件（C2.5）：
+// - trust proxy：在 Cloudflare / Nginx 后让 req.ip 走 X-Forwarded-For
+// - helmet：基础安全响应头；CSP 暂关，留给关卡 4 单独打磨
+// - compression：仅对 >1KB 响应启用 gzip，列表 JSON 能省 60%+
+app.set("trust proxy", 1);
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression({ threshold: 1024 }));
 
 function requireSecret(name: string): string {
   const value = process.env[name];
