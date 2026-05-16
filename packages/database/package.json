@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "migrate": "tsx src/migrate.ts",
+    "retention": "tsx src/retention-cleanup.ts",
     "seed:bulk": "tsx src/seed-bulk.ts",
     "lint": "echo \"No database lint rules yet\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",

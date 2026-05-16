@@ -13,11 +13,11 @@ type RegisterFormProps = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{10,}$/;
 
 function getPasswordStrength(pwd: string): "weak" | "medium" | "strong" {
-  if (pwd.length < 8 || !/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) return "weak";
-  if (pwd.length >= 12 && /[^A-Za-z\d]/.test(pwd) && /[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) return "strong";
+  if (pwd.length < 10 || !/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) return "weak";
+  if (pwd.length >= 14 && /[^A-Za-z\d]/.test(pwd) && /[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) return "strong";
   return "medium";
 }
 

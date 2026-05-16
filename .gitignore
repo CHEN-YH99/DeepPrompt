@@ -1,10 +1,12 @@
 node_modules/
 apps/*/node_modules/
+packages/*/node_modules/
 apps/*/.next/
 apps/*/dist/
+packages/*/dist/
 apps/api/uploads/
 apps/web/public/uploads/
-apps/*/*.tsbuildinfo
+*.tsbuildinfo
 apps/*/dev.stdout.log
 apps/*/dev.stderr.log
 *.log
@@ -13,9 +15,43 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Build / cache
+.turbo/
+.cache/
+coverage/
+.next/
+out/
+build/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code 本机私有配置（settings.json 仍可共享）
+.claude/settings.local.json
+.claude/.credentials.json
+.claude/scheduled_tasks.json
+.claude/worktrees/
+
 # Secrets — never commit
 .env
 .env.local
 .env.*.local
 .env.production
 .env.staging
+*.local
+
+# 项目文档（本地参考，不入库）；保留 README / CLAUDE / 工具 skill 文档
+*.md
+!README.md
+!CLAUDE.md
+!.agents/**/*.md
+!.continue/**/*.md
+!.claude/**/*.md

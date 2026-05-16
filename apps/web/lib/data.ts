@@ -760,6 +760,68 @@ export async function fetchModerationQueue(
   }
 }
 
+export type AuditLogEntry = {
+  id: string;
+  actor_id: string;
+  actor_nickname: string | null;
+  actor_role: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  payload: unknown;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export type AuditLogQuery = {
+  actorId?: string;
+  action?: string;
+  targetType?: string;
+  targetId?: string;
+  from?: string;
+  to?: string;
+};
+
+export async function fetchAuditLogs(
+  query: AuditLogQuery,
+  accessToken?: string,
+  page = 1,
+  pageSize = 20
+): Promise<PaginatedResult<AuditLogEntry>> {
+  if (!accessToken) {
+    return { items: [], total: 0, page, pageSize };
+  }
+  try {
+    const params = new URLSearchParams();
+    if (query.actorId) params.set("actor_id", query.actorId);
+    if (query.action) params.set("action", query.action);
+    if (query.targetType) params.set("target_type", query.targetType);
+    if (query.targetId) params.set("target_id", query.targetId);
+    if (query.from) params.set("from", query.from);
+    if (query.to) params.set("to", query.to);
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+
+    const response = await fetch(`${apiBaseUrl}/v1/admin/audit-logs?${params}`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { items: [], total: 0, page, pageSize };
+    }
+    const json = await readApiResponse<AuditLogEntry[], { page: number; pageSize: number; total: number }>(response);
+    return {
+      items: json.data,
+      total: json.meta?.total ?? 0,
+      page: json.meta?.page ?? page,
+      pageSize: json.meta?.pageSize ?? pageSize
+    };
+  } catch {
+    return { items: [], total: 0, page, pageSize };
+  }
+}
+
 export async function toggleInteraction(
   promptId: string,
   type: "like" | "collect",

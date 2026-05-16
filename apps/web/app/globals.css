@@ -1045,3 +1045,129 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
     transition: none;
   }
 }
+
+.page-transition-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 250;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.page-transition-loader[data-visible="true"] {
+  opacity: 1;
+}
+
+.page-transition-bar {
+  position: relative;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 4px,
+      rgba(255, 255, 255, 0.04) 4px,
+      rgba(255, 255, 255, 0.04) 5px
+    ),
+    rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid rgba(230, 25, 25, 0.45);
+  overflow: hidden;
+  box-shadow: 0 0 12px rgba(230, 25, 25, 0.45);
+}
+
+.page-transition-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(230, 25, 25, 0.55) 25%,
+    rgba(230, 25, 25, 0.95) 50%,
+    rgba(255, 255, 255, 0.85) 60%,
+    rgba(230, 25, 25, 0.95) 70%,
+    rgba(230, 25, 25, 0.55) 85%,
+    transparent
+  );
+  filter: drop-shadow(0 0 6px rgba(230, 25, 25, 0.7));
+  animation: page-transition-march 1.05s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+
+.page-transition-badge {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(230, 25, 25, 0.55);
+  color: var(--danger);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 6px 18px rgba(0, 0, 0, 0.55);
+  transform: translateY(-4px);
+  opacity: 0;
+  transition: opacity 200ms ease 60ms, transform 240ms cubic-bezier(0.18, 0.9, 0.32, 1.2) 60ms;
+}
+
+.page-transition-loader[data-visible="true"] .page-transition-badge {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.page-transition-rec {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(230, 25, 25, 0.85);
+  animation: page-transition-blink 0.85s ease-in-out infinite;
+}
+
+@keyframes page-transition-march {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes page-transition-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-transition-badge {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-bar-fill {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.7;
+  }
+  .page-transition-rec {
+    animation: none;
+  }
+}

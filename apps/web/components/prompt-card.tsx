@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 
 import { CopyPromptButton } from "@/components/copy-prompt-button";
@@ -36,6 +37,16 @@ type PromptCardProps = {
 
 export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
   const coverUrl = isSafeImageUrl(prompt.cover) ? prompt.cover : "/placeholder.svg";
+  const router = useRouter();
+  const detailHref = `/prompts/${prompt.id}`;
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest(".action-row, .prompt-thumb")) return;
+      router.push(detailHref);
+    },
+    [router, detailHref]
+  );
 
   const excerpt =
     prompt.excerpt.length > MAX_EXCERPT
@@ -74,7 +85,7 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
 
   return (
     <>
-      <Link className="prompt-card-link" href={`/prompts/${prompt.id}`}>
+      <div className="prompt-card-link" onClick={handleCardClick} role="article" style={{ cursor: "pointer" }}>
         <article className="prompt-card">
           <div
             className="prompt-thumb"
@@ -132,7 +143,7 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
             <span>{formatDateTime(prompt.createdAt)}</span>
           </div>
           <div className="action-row" onClick={(e) => e.stopPropagation()}>
-            <Link className="micro-action" href={`/prompts/${prompt.id}`}>
+            <Link className="micro-action" href={detailHref}>
               {labels.actions.openDossier}
             </Link>
             <CopyPromptButton
@@ -142,7 +153,7 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
             />
           </div>
         </article>
-      </Link>
+      </div>
 
       {lightboxSrc && (
         <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>

@@ -13,6 +13,7 @@ const nextConfig = {
         : [])
     ],
     formats: ["image/avif", "image/webp"],
+    qualities: [75, 90],
     minimumCacheTTL: 30 * 24 * 60 * 60,
     dangerouslyAllowSVG: false
   }

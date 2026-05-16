@@ -2365,6 +2365,95 @@ app.get(
   }
 );
 
+app.get(
+  "/v1/admin/audit-logs",
+  requireRole("admin", "moderator"),
+  adminRateLimit(),
+  async (req, res) => {
+    const { page, pageSize, offset } = parsePagination(req.query);
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    const actorId = String(req.query.actor_id ?? "").trim();
+    const action = String(req.query.action ?? "").trim();
+    const targetType = String(req.query.target_type ?? "").trim();
+    const targetId = String(req.query.target_id ?? "").trim();
+    const fromRaw = String(req.query.from ?? "").trim();
+    const toRaw = String(req.query.to ?? "").trim();
+
+    if (actorId) {
+      params.push(actorId);
+      conditions.push(`a.actor_id = $${params.length}::uuid`);
+    }
+    if (action) {
+      params.push(action);
+      conditions.push(`a.action = $${params.length}`);
+    }
+    if (targetType) {
+      params.push(targetType);
+      conditions.push(`a.target_type = $${params.length}`);
+    }
+    if (targetId) {
+      params.push(targetId);
+      conditions.push(`a.target_id = $${params.length}`);
+    }
+    if (fromRaw && !Number.isNaN(Date.parse(fromRaw))) {
+      params.push(new Date(fromRaw));
+      conditions.push(`a.created_at >= $${params.length}`);
+    }
+    if (toRaw && !Number.isNaN(Date.parse(toRaw))) {
+      params.push(new Date(toRaw));
+      conditions.push(`a.created_at <= $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const [countResult, listResult] = await Promise.all([
+      pgClient.query<{ total: string }>(
+        `SELECT COUNT(*)::TEXT AS total FROM audit_logs a ${whereClause}`,
+        params
+      ),
+      pgClient.query<{
+        id: string;
+        actor_id: string;
+        actor_nickname: string;
+        actor_role: string;
+        action: string;
+        target_type: string | null;
+        target_id: string | null;
+        payload: unknown;
+        ip_address: string | null;
+        user_agent: string | null;
+        created_at: Date;
+      }>(
+        `
+        SELECT a.id::TEXT, a.actor_id::TEXT, u.nickname AS actor_nickname,
+               a.actor_role::TEXT, a.action, a.target_type, a.target_id,
+               a.payload, a.ip_address, a.user_agent, a.created_at
+        FROM audit_logs a
+        LEFT JOIN users u ON u.id = a.actor_id
+        ${whereClause}
+        ORDER BY a.created_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+        `,
+        params
+      )
+    ]);
+
+    const total = Number(countResult.rows[0]?.total ?? 0);
+    const items = listResult.rows.map((row) => ({
+      ...row,
+      created_at: row.created_at.toISOString()
+    }));
+
+    await writeAuditLog(req, "admin.audit_logs.list", {
+      payload: { count: items.length, filters: { actorId, action, targetType, targetId, fromRaw, toRaw } }
+    });
+
+    success(res, items, { page, pageSize, total });
+  }
+);
+
 function generateInviteCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "DP-";

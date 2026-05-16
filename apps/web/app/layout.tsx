@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 
 import { CacheSyncProvider } from "@/components/cache-sync-provider";
+import { PageTransitionLoader } from "@/components/page-transition-loader";
 import { ScrollStateProvider } from "@/components/scroll-state-provider";
 import { Shell } from "@/components/shell";
 import { TelemetryProvider } from "@/components/telemetry-provider";
@@ -71,6 +72,7 @@ export default function RootLayout({
     <html lang={locale}>
       <body>
         <Shell>{children}</Shell>
+        <PageTransitionLoader />
         <TelemetryProvider />
         <CacheSyncProvider />
         <ScrollStateProvider />
