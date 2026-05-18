@@ -360,10 +360,6 @@ npm run test --if-present
 - 评论、收藏夹细分、积分成就已有部分表结构，但前端业务闭环还不完整。
 - `packages/ui` 当前只是预留包，尚无组件体系。
 
-## 面试讲法速记
+## License
 
-可以这样概括项目：
-
-> DeepPrompt 是一个 AI 生图 Prompt 社区平台，我负责把它从文档规划落成一个可运行的 Monorepo。前端用 Next.js App Router，后端用 Express，数据库用 PostgreSQL，Redis 做缓存和登录保护。核心链路包括 Prompt 搜索、发布、审核、互动、模型注册表、JWT 会话、审计日志和 telemetry。项目里我比较重视安全和可运营性，比如 refresh token rotation、账号锁定、审核状态机、缓存失效和上线检查表都有落地。
-
-更完整的面试问答见 `DeepPrompt_面试题库.md`。
+[MIT](LICENSE)
