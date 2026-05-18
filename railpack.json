@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "20"
+  },
+  "steps": {
+    "install": {
+      "commands": [
+        "npm ci"
+      ]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": [
+        "npm run build --workspace @deepprompt/api"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "node apps/api/dist/index.js"
+  }
+}
