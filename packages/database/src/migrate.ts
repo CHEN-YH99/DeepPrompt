@@ -38,7 +38,11 @@ if (!databaseUrl) {
 }
 
 async function run() {
-  const client = new Client({ connectionString: databaseUrl });
+  const useSsl = process.env.PGSSL === "1" || /[?&]sslmode=/.test(databaseUrl ?? "");
+  const client = new Client({
+    connectionString: databaseUrl,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined
+  });
   await client.connect();
   try {
     await client.query("BEGIN");

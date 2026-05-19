@@ -2676,10 +2676,14 @@ app.post("/v1/uploads/confirm/:key", requireAuth, async (req, res) => {
 app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   logError(req, "unhandled_exception", error);
   const reqId = (req as Request & { reqId?: string }).reqId ?? "-";
+  const debugErrors = process.env.DEBUG_ERRORS === "true";
+  const exposeRealError = !isProduction || debugErrors;
   const body: ApiError = {
     error: {
       code: "INTERNAL_ERROR",
-      message: isProduction ? "Internal server error" : (error instanceof Error ? error.message : "Unknown error")
+      message: exposeRealError
+        ? (error instanceof Error ? `${error.message}${error.stack ? "\n" + error.stack : ""}` : String(error))
+        : "Internal server error"
     }
   };
   res.status(500).json({ ...body, reqId });
