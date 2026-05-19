@@ -1,12 +1,8 @@
-import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import type { CreatePromptInput } from "@deepprompt/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
-const uploadRoot = path.resolve(process.cwd(), "public", "uploads");
 
 export const runtime = "nodejs";
 
@@ -39,27 +35,50 @@ function redirectWithError(request: NextRequest, error: string, detail?: string)
   return NextResponse.redirect(url, { status: 303 });
 }
 
-async function persistUploadedFile(file: File) {
-  const now = new Date();
-  const year = String(now.getFullYear());
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const ext = path.extname(file.name || "").toLowerCase() || ".bin";
-  const fileName = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-  const relativePath = path.posix.join(year, month, day, fileName);
-  const targetPath = path.resolve(uploadRoot, relativePath);
-
-  if (!targetPath.startsWith(uploadRoot)) {
-    throw new Error("Resolved upload path escaped upload root");
+async function persistUploadedFile(file: File, accessToken: string) {
+  const presignRes = await fetch(`${apiBaseUrl}/v1/uploads/presign`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      filename: file.name || "upload.bin",
+      content_type: file.type || "application/octet-stream"
+    }),
+    cache: "no-store"
+  });
+  if (!presignRes.ok) {
+    throw new Error(`presign failed: ${presignRes.status}`);
+  }
+  const presignJson = (await presignRes.json()) as {
+    data?: { uploadUrl?: string; key?: string; publicUrl?: string };
+  };
+  const uploadUrl = presignJson.data?.uploadUrl;
+  const key = presignJson.data?.key;
+  const publicUrl = presignJson.data?.publicUrl;
+  if (!uploadUrl || !key || !publicUrl) {
+    throw new Error("presign response missing fields");
   }
 
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  await fs.writeFile(targetPath, bytes);
+  const putRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "content-type": file.type || "application/octet-stream" },
+    body: await file.arrayBuffer()
+  });
+  if (!putRes.ok) {
+    throw new Error(`R2 PUT failed: ${putRes.status}`);
+  }
+
+  await fetch(`${apiBaseUrl}/v1/uploads/confirm/${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}` },
+    cache: "no-store"
+  }).catch(() => {});
 
   return {
-    url: `/uploads/${relativePath}`,
-    thumb_url: `/uploads/${relativePath}`,
+    url: publicUrl,
+    thumb_url: publicUrl,
     width: 1200,
     height: 800,
     file_size: file.size
@@ -111,7 +130,7 @@ export async function POST(request: NextRequest) {
   let images: CreatePromptInput["images"] = [];
   if (uploadedFiles.length > 0) {
     try {
-      images = await Promise.all(uploadedFiles.map((file) => persistUploadedFile(file)));
+      images = await Promise.all(uploadedFiles.map((file) => persistUploadedFile(file, accessToken)));
     } catch (uploadError) {
       console.error("[publish] persistUploadedFile threw", uploadError);
       return redirectWithError(request, "upload_failed");
