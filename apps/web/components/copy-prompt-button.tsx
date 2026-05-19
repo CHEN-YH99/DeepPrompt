@@ -70,13 +70,33 @@ export function CopyPromptButton({ promptId, promptText, labels }: CopyPromptBut
     });
   }
 
+  const toastMessage =
+    copyState === "success" ? labels.copied : copyState === "error" ? labels.copyFailed : "";
+
   return (
-    <button
-      className={copyState === "idle" ? "ghost-action" : "action"}
-      onClick={handleCopy}
-      type="button"
-    >
-      {getLabel()}
-    </button>
+    <>
+      <button
+        className={copyState === "idle" ? "ghost-action" : "action"}
+        onClick={handleCopy}
+        type="button"
+      >
+        {getLabel()}
+      </button>
+      {/*
+        aria-live polite 区域：
+        - 屏幕阅读器在 copyState 变化时读出"已复制 / 复制失败"。
+        - 视觉上做成右下角浮动 toast，2 秒自动消失，与按钮 setTimeout 同步。
+        - 用户视线在 prompt 文本上时也能感知到反馈。
+      */}
+      <span
+        aria-atomic="true"
+        aria-live="polite"
+        className={`copy-toast${copyState !== "idle" ? " is-visible" : ""}`}
+        data-state={copyState}
+        role="status"
+      >
+        {toastMessage}
+      </span>
+    </>
   );
 }

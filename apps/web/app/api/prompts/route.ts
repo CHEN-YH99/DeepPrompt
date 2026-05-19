@@ -27,12 +27,59 @@ function collectParamsJson(formData: FormData) {
   return params;
 }
 
-function redirectWithError(request: NextRequest, error: string, detail?: string) {
+// 发布失败回灌：把已提交的文字段塞到一次性 cookie 里，/publish 读出来回灌 defaultValue。
+// 图片文件 (FormData File) 浏览器不允许程序化恢复，所以只保留文字字段 + image_url。
+// 5 分钟过期，避免长时间残留。
+const PUBLISH_DRAFT_COOKIE = "publish_draft";
+const PUBLISH_DRAFT_MAX_LEN = 12_000;
+
+function collectDraftSnapshot(formData: FormData) {
+  const draft: Record<string, string | string[] | Record<string, string>> = {};
+  const stringKeys = ["title", "prompt_text", "negative_prompt", "usage_note", "image_url", "model_id"];
+  for (const key of stringKeys) {
+    const value = String(formData.get(key) ?? "");
+    if (value) draft[key] = value;
+  }
+  for (const tagKey of ["style_tags", "usage_tags", "color_tags"] as const) {
+    const tags = splitTags(formData.get(tagKey));
+    if (tags.length > 0) draft[tagKey] = tags;
+  }
+  const params = collectParamsJson(formData);
+  if (Object.keys(params).length > 0) draft.params = params;
+  return draft;
+}
+
+function redirectWithError(
+  request: NextRequest,
+  error: string,
+  detail?: string,
+  formData?: FormData
+) {
   const url = new URL(`/publish?error=${error}`, request.url);
   if (detail) {
     url.searchParams.set("detail", detail.slice(0, 240));
   }
-  return NextResponse.redirect(url, { status: 303 });
+  const response = NextResponse.redirect(url, { status: 303 });
+  if (formData) {
+    try {
+      const snapshot = collectDraftSnapshot(formData);
+      const serialized = JSON.stringify(snapshot);
+      // 防御 cookie 体积爆炸（4KB 限制）；超长就放弃保存，让用户至少看到错误提示。
+      if (serialized.length <= PUBLISH_DRAFT_MAX_LEN) {
+        response.cookies.set({
+          name: PUBLISH_DRAFT_COOKIE,
+          value: encodeURIComponent(serialized),
+          path: "/publish",
+          maxAge: 300,
+          sameSite: "lax",
+          httpOnly: false
+        });
+      }
+    } catch {
+      // 序列化失败就静默放弃；不影响主流程
+    }
+  }
+  return response;
 }
 
 async function persistUploadedFile(file: File, accessToken: string) {
@@ -87,10 +134,15 @@ async function persistUploadedFile(file: File, accessToken: string) {
 
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
+  // 登录失效路径：先读出 formData 再跳，让用户重新登录后回到 /publish 还能看到自己写的内容。
   if (!accessToken) {
-    return NextResponse.redirect(new URL("/publish?error=login_required", request.url), {
-      status: 303
-    });
+    let formDataForDraft: FormData | undefined;
+    try {
+      formDataForDraft = await request.clone().formData();
+    } catch {
+      formDataForDraft = undefined;
+    }
+    return redirectWithError(request, "login_required", undefined, formDataForDraft);
   }
 
   const formData = await request.formData();
@@ -124,7 +176,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (title.length < 4 || promptText.length < 12 || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
-    return redirectWithError(request, "invalid_prompt_payload");
+    return redirectWithError(request, "invalid_prompt_payload", undefined, formData);
   }
 
   let images: CreatePromptInput["images"] = [];
@@ -133,7 +185,7 @@ export async function POST(request: NextRequest) {
       images = await Promise.all(uploadedFiles.map((file) => persistUploadedFile(file, accessToken)));
     } catch (uploadError) {
       console.error("[publish] persistUploadedFile threw", uploadError);
-      return redirectWithError(request, "upload_failed");
+      return redirectWithError(request, "upload_failed", undefined, formData);
     }
   }
 
@@ -176,7 +228,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (fetchError) {
     console.error("[publish] backend fetch threw", fetchError);
-    return redirectWithError(request, "api_unreachable");
+    return redirectWithError(request, "api_unreachable", undefined, formData);
   }
 
   if (!response.ok) {
@@ -193,7 +245,7 @@ export async function POST(request: NextRequest) {
       status: response.status,
       code: parsed?.error?.code ?? "(none)"
     });
-    return redirectWithError(request, "publish_failed", message);
+    return redirectWithError(request, "publish_failed", message, formData);
   }
 
   const json = (await response.json()) as {
@@ -217,11 +269,18 @@ export async function POST(request: NextRequest) {
   }
 
   if (createdPromptId && status !== "draft") {
-    return NextResponse.redirect(
+    const successResponse = NextResponse.redirect(
       new URL(`/prompts/${createdPromptId}?created=1`, request.url),
       { status: 303 }
     );
+    successResponse.cookies.delete({ name: PUBLISH_DRAFT_COOKIE, path: "/publish" });
+    return successResponse;
   }
 
-  return NextResponse.redirect(new URL("/me/prompts?created=1", request.url), { status: 303 });
+  const draftResponse = NextResponse.redirect(
+    new URL("/me/prompts?created=1", request.url),
+    { status: 303 }
+  );
+  draftResponse.cookies.delete({ name: PUBLISH_DRAFT_COOKIE, path: "/publish" });
+  return draftResponse;
 }

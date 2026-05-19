@@ -11,6 +11,7 @@ type TagPickerProps = {
   max?: number;
   required?: boolean;
   maxHintLabel: string;
+  initialSelected?: string[];
 };
 
 export function TagPicker({
@@ -19,9 +20,23 @@ export function TagPicker({
   options,
   max = 5,
   required = false,
-  maxHintLabel
+  maxHintLabel,
+  initialSelected = []
 }: TagPickerProps) {
-  const [selected, setSelected] = useState<string[]>([]);
+  // 发布失败回灌：只接受当前 options 列表里存在的 value，去重并截断到 max。
+  const [selected, setSelected] = useState<string[]>(() => {
+    const allowed = new Set(options.map((o) => o.value));
+    const seen = new Set<string>();
+    const filtered: string[] = [];
+    for (const value of initialSelected) {
+      if (!allowed.has(value)) continue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      filtered.push(value);
+      if (filtered.length >= max) break;
+    }
+    return filtered;
+  });
 
   function toggle(value: string) {
     setSelected((prev) => {

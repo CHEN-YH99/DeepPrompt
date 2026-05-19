@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { cookies } from "next/headers";
 
 import { PublishForm } from "@/components/publish-form";
 import { SectionHeader } from "@/components/section-header";
@@ -19,6 +20,33 @@ type PublishPageProps = {
   }>;
 };
 
+// 发布失败回灌：API route 把已提交字段塞进 publish_draft cookie，这里读出来回灌 defaultValue。
+// 图片文件浏览器不允许程序化恢复，仅文字段 + image_url 可保留。
+type PublishDraft = {
+  title?: string;
+  prompt_text?: string;
+  negative_prompt?: string;
+  usage_note?: string;
+  image_url?: string;
+  model_id?: string;
+  style_tags?: string[];
+  usage_tags?: string[];
+  color_tags?: string[];
+  params?: Record<string, string>;
+};
+
+function readPublishDraft(rawCookie: string | undefined): PublishDraft {
+  if (!rawCookie) return {};
+  try {
+    const decoded = decodeURIComponent(rawCookie);
+    const parsed = JSON.parse(decoded) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as PublishDraft;
+  } catch {
+    return {};
+  }
+}
+
 export default async function PublishPage({ searchParams }: PublishPageProps) {
   const dict = getDictionary();
 
@@ -36,6 +64,16 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
   const errorDetail = resolvedSearchParams?.detail?.trim() ?? "";
   const models = await fetchModels();
   const firstModel = models[0] ?? defaultModel;
+
+  // 只有在错误回跳场景下才回灌（避免空白页面意外读到旧 cookie）。
+  const shouldRestoreDraft = Boolean(resolvedSearchParams?.error);
+  const cookieStore = await cookies();
+  const rawDraft = cookieStore.get("publish_draft")?.value;
+  const draft: PublishDraft = shouldRestoreDraft ? readPublishDraft(rawDraft) : {};
+
+  const restoredModelId = draft.model_id && models.some((m) => m.id === draft.model_id)
+    ? draft.model_id
+    : firstModel.id;
 
   return (
     <main className="shell">
@@ -129,32 +167,45 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     <label className="field-label" htmlFor="title">
                       {dict.publish.title}
                     </label>
-                    <input defaultValue="" id="title" name="title" required />
+                    <input defaultValue={draft.title ?? ""} id="title" name="title" required />
                   </div>
                   <div className="field">
                     <label className="field-label" htmlFor="prompt">
                       {dict.publish.promptText}
                     </label>
-                    <textarea defaultValue="" id="prompt" name="prompt_text" required />
+                    <textarea
+                      defaultValue={draft.prompt_text ?? ""}
+                      id="prompt"
+                      name="prompt_text"
+                      required
+                    />
                   </div>
                   <div className="field">
                     <label className="field-label" htmlFor="negative">
                       {dict.publish.negativePrompt}
                     </label>
-                    <textarea defaultValue="" id="negative" name="negative_prompt" />
+                    <textarea
+                      defaultValue={draft.negative_prompt ?? ""}
+                      id="negative"
+                      name="negative_prompt"
+                    />
                   </div>
                   <div className="field">
                     <label className="field-label" htmlFor="note">
                       {dict.publish.usageNote}
                     </label>
-                    <textarea defaultValue="" id="note" name="usage_note" />
+                    <textarea
+                      defaultValue={draft.usage_note ?? ""}
+                      id="note"
+                      name="usage_note"
+                    />
                   </div>
                 </div>
               </div>
               <div className="section" data-unit="FORM / RIGHT">
                 <PublishForm
-                  initialModelId={firstModel.id}
-                  initialParams={{}}
+                  initialModelId={restoredModelId}
+                  initialParams={draft.params ?? {}}
                   labels={dict.publish}
                   models={models}
                   negativeLabels={{
@@ -173,6 +224,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     max={5}
                     required
                     maxHintLabel={dict.publish.tagMaxHint}
+                    initialSelected={draft.style_tags ?? []}
                   />
                   <TagPicker
                     label={dict.publish.usageTags}
@@ -183,6 +235,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     }))}
                     max={5}
                     maxHintLabel={dict.publish.tagMaxHint}
+                    initialSelected={draft.usage_tags ?? []}
                   />
                   <TagPicker
                     label={dict.publish.colorTags}
@@ -193,19 +246,28 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     }))}
                     max={5}
                     maxHintLabel={dict.publish.tagMaxHint}
+                    initialSelected={draft.color_tags ?? []}
                   />
                   <div className="field">
                     <label className="field-label" htmlFor="images">
                       {dict.publish.imageFiles}
                     </label>
                     <input accept="image/*" id="images" multiple name="images" type="file" />
-                    <div className="field-hint">{dict.publish.imageHint}</div>
+                    <div className="field-hint">
+                      {dict.publish.imageHint}
+                      {shouldRestoreDraft ? "（图片需要重新选择）" : ""}
+                    </div>
                   </div>
                   <div className="field">
                     <label className="field-label" htmlFor="image-url">
                       {dict.publish.imageUrl}
                     </label>
-                    <input defaultValue="" id="image-url" name="image_url" type="url" />
+                    <input
+                      defaultValue={draft.image_url ?? ""}
+                      id="image-url"
+                      name="image_url"
+                      type="url"
+                    />
                     <div className="field-hint">{dict.publish.imageUrlHint}</div>
                   </div>
                 </div>

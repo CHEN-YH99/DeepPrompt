@@ -41,6 +41,33 @@ body {
     var(--bg);
   color: var(--text);
   font-family: var(--mono);
+}
+
+/* 装饰文字统一大写（替代旧的全局 body uppercase）。
+   只让 eyebrow / kicker / nav / 按钮 / 标签 / 状态徽章 等装饰位走大写，
+   正文、prompt 内容、模型 ID、tag value、错误消息等保留原始大小写。 */
+.eyebrow,
+.brand-mark,
+.brand-sub,
+.nav-link,
+.card-kicker,
+.mini-label,
+.field-label,
+.stat-label,
+.table-head,
+.list-kicker,
+.tag,
+.status-badge,
+.kpi-row,
+.strength-label,
+.ascii-rule,
+.footer-strip > *,
+.action,
+.ghost-action,
+.micro-action,
+.tab-chip,
+.confirm-cancel,
+.confirm-ok {
   text-transform: uppercase;
 }
 
@@ -146,7 +173,7 @@ img {
     0 0 0 0 rgba(230, 25, 25, 0);
 }
 
-/* 滚动中：扫描线流动 + 红光晕 */
+/* 滚动中：扫描线流动 + 红光晕（降一档强度，避免长时间使用疲劳） */
 html[data-scrolling="true"] *::-webkit-scrollbar-thumb {
   background:
     repeating-linear-gradient(
@@ -159,10 +186,10 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb {
     var(--danger);
   background-size: 100% 8px, 100% 100%;
   box-shadow:
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.35),
-    inset -1px 0 0 0 rgba(0, 0, 0, 0.6),
-    0 0 8px rgba(230, 25, 25, 0.6);
-  animation: scrollbar-thumb-stream 1s linear infinite;
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.22),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.55),
+    0 0 4px rgba(230, 25, 25, 0.35);
+  animation: scrollbar-thumb-stream 1.6s linear infinite;
 }
 
 html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
@@ -177,10 +204,10 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
     var(--danger);
   background-size: 8px 100%, 100% 100%;
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.6),
-    0 0 8px rgba(230, 25, 25, 0.6);
-  animation: scrollbar-thumb-stream-h 1s linear infinite;
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.55),
+    0 0 4px rgba(230, 25, 25, 0.35);
+  animation: scrollbar-thumb-stream-h 1.6s linear infinite;
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -192,8 +219,8 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
       rgba(0, 0, 0, 0.55) 2px,
       rgba(0, 0, 0, 0.55) 3px
     ),
-    #ff2a2a;
-  animation: scrollbar-thumb-pulse 1.9s ease-in-out infinite;
+    #ee2424;
+  animation: scrollbar-thumb-pulse 2.6s ease-in-out infinite;
 }
 
 *::-webkit-scrollbar-thumb:horizontal:hover {
@@ -1038,11 +1065,70 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   }
 }
 
+/* CopyPromptButton 的 aria-live toast。
+   sr-only 默认状态保留给屏幕阅读器，可见状态走右下角浮层。 */
+.copy-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 220;
+  padding: 10px 16px;
+  border: 1px solid var(--line-strong);
+  background: rgba(20, 20, 20, 0.96);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.copy-toast:not(.is-visible) {
+  /* 仍保留在 DOM 里给 aria-live 读，但视觉上隐藏 */
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.copy-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.copy-toast[data-state="error"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *::-webkit-scrollbar-thumb,
-  *::-webkit-scrollbar-thumb:hover {
-    animation: none;
+  .copy-toast {
     transition: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 前庭敏感用户：把所有滚动条流动 / 脉冲动画与发光全部静音 */
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-thumb:hover,
+  *::-webkit-scrollbar-thumb:active,
+  *::-webkit-scrollbar-thumb:horizontal,
+  *::-webkit-scrollbar-thumb:horizontal:hover,
+  *::-webkit-scrollbar-thumb:horizontal:active,
+  html[data-scrolling="true"] *::-webkit-scrollbar-thumb,
+  html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
   }
 }
 
