@@ -2611,7 +2611,9 @@ if (r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
     credentials: {
       accessKeyId: r2AccessKeyId,
       secretAccessKey: r2SecretAccessKey
-    }
+    },
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED"
   });
   console.log("[api] R2 client initialized for bucket:", r2BucketName);
 } else {
