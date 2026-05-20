@@ -1,26 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type BackToSearchProps = {
   label: string;
 };
 
+function subscribe() {
+  return () => {};
+}
+
+function getSnapshot(): boolean {
+  try {
+    const ref = document.referrer;
+    return Boolean(ref && new URL(ref).pathname.startsWith("/search"));
+  } catch {
+    return false;
+  }
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
+
 export function BackToSearch({ label }: BackToSearchProps) {
   const router = useRouter();
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    try {
-      const ref = document.referrer;
-      if (ref && new URL(ref).pathname.startsWith("/search")) {
-        setShow(true);
-      }
-    } catch {
-      // referrer 解析失败就不显示
-    }
-  }, []);
+  const show = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (!show) return null;
 

@@ -361,6 +361,168 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   min-width: 0;
 }
 
+/* 桌面端：nav-desktop 直接展示，内联菜单隐藏 */
+.nav-desktop {
+  display: contents;
+}
+
+.nav-inline-wrap {
+  display: none;
+}
+
+/* 移动端 < 720px */
+@media (max-width: 719px) {
+  .nav-desktop {
+    display: none;
+  }
+
+  .nav-inline-wrap {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+  }
+
+  /* 切换按钮 */
+  .nav-inline-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    border: none;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* 图标：三横线 → 箭头 */
+  .nav-toggle-icon {
+    position: relative;
+    display: block;
+    width: 16px;
+    height: 12px;
+  }
+
+  .nav-toggle-icon::before,
+  .nav-toggle-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--text);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+  }
+
+  .nav-toggle-icon::before {
+    top: 0;
+  }
+
+  .nav-toggle-icon::after {
+    top: 10px;
+  }
+
+  /* 中间那条用 box-shadow 模拟 */
+  .nav-toggle-icon {
+    box-shadow: 0 5px 0 0 var(--text);
+    transition: box-shadow 0.2s;
+  }
+
+  /* 展开态：三横线变 > 箭头 */
+  .nav-inline-wrap.is-open .nav-toggle-icon {
+    box-shadow: none;
+  }
+
+  .nav-inline-wrap.is-open .nav-toggle-icon::before {
+    top: 5px;
+    transform: rotate(35deg) scaleX(0.7);
+    transform-origin: left center;
+  }
+
+  .nav-inline-wrap.is-open .nav-toggle-icon::after {
+    top: 5px;
+    transform: rotate(-35deg) scaleX(0.7);
+    transform-origin: left center;
+  }
+
+  /* 菜单容器：始终在 DOM，用 clip-path 做展开/收起 */
+  .nav-inline-menu {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+    transition: clip-path 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  .nav-inline-menu.is-visible {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nav-inline-menu .nav-link {
+    display: flex;
+    align-items: center;
+    border-left: 1px solid var(--line);
+    padding: 0 14px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    height: 100%;
+  }
+
+  .nav-inline-menu .nav-user {
+    margin-left: auto;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    border-left: 1px solid var(--line);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 719px) and (prefers-reduced-motion: reduce) {
+  .nav-inline-menu {
+    transition: none;
+  }
+
+  .nav-toggle-icon::before,
+  .nav-toggle-icon::after {
+    transition: none;
+  }
+
+  .nav-toggle-icon {
+    transition: none;
+  }
+}
+
+/* Skip to content 链接 */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 10002;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-size: 12px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
 .nav-link {
   display: inline-flex;
   align-items: center;
@@ -1176,6 +1338,55 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* 全局 Toast 系统 */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.global-toast {
+  padding: 10px 16px;
+  font-size: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
+  pointer-events: auto;
+  animation: toast-in 220ms ease forwards;
+}
+
+.global-toast.success {
+  border-color: rgba(74, 246, 38, 0.4);
+  color: #4af626;
+}
+
+.global-toast.error {
+  border-color: var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-toast {
+    animation: none;
+  }
 }
 
 /* TagPicker 已选预览 chip 行 */

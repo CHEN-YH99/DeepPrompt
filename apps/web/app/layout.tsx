@@ -6,6 +6,7 @@ import { PageTransitionLoader } from "@/components/page-transition-loader";
 import { ScrollStateProvider } from "@/components/scroll-state-provider";
 import { Shell } from "@/components/shell";
 import { TelemetryProvider } from "@/components/telemetry-provider";
+import { ToastProvider } from "@/components/toast-provider";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import "./globals.css";
 import "./typewriter.css";
@@ -71,7 +72,9 @@ export default function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        <Shell>{children}</Shell>
+        <ToastProvider>
+          <Shell>{children}</Shell>
+        </ToastProvider>
         <PageTransitionLoader />
         <TelemetryProvider />
         <CacheSyncProvider />

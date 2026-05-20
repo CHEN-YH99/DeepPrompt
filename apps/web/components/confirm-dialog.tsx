@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type ConfirmDialogProps = {
   message: string;
@@ -18,9 +19,11 @@ export function ConfirmDialog({
   onCancel
 }: ConfirmDialogProps) {
   const [visible, setVisible] = useState(false);
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
+    rafRef.current = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
   const close = useCallback(
@@ -38,7 +41,9 @@ export function ConfirmDialog({
     if (e.key === "Escape") close("cancel");
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="confirm-overlay"
       data-visible={visible}
@@ -57,6 +62,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

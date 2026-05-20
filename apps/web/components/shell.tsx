@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 
+import { MobileNav } from "@/components/mobile-nav";
 import { NavLinks, type NavLinkItem } from "@/components/nav-links";
 import { UserNav } from "@/components/user-nav";
 import { fetchCurrentUser } from "@/lib/data";
@@ -38,7 +39,7 @@ export async function Shell({ children }: ShellProps) {
             <div className="brand-name">{dict.common.brand}</div>
             <div className="brand-sub">{dict.common.brandSub}</div>
           </div>
-          <nav className="nav-strip" aria-label={dict.nav.home}>
+          <MobileNav ariaLabel={dict.nav.home}>
             <NavLinks items={navItems} />
             <UserNav
               confirmLogoutLabel={dict.nav.confirmLogout}
@@ -46,10 +47,15 @@ export async function Shell({ children }: ShellProps) {
               loginLabel={dict.nav.login}
               logoutLabel={dict.nav.logout}
             />
-          </nav>
+          </MobileNav>
         </header>
       </div>
-      {children}
+      <a href="#main" className="skip-link">
+        跳到正文
+      </a>
+      <main id="main">
+        {children}
+      </main>
       <div className="shell">
         <footer className="footer-strip">
           <div>{dict.common.footerLine}</div>
