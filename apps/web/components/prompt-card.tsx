@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 import { CopyPromptButton } from "@/components/copy-prompt-button";
+import { HighlightText } from "@/components/highlight-text";
 import type { PromptRecord } from "@/lib/data";
 import type { Dictionary } from "@/lib/i18n";
 import { isSafeImageUrl } from "@/lib/safe-url";
@@ -33,9 +34,10 @@ type PromptCardProps = {
   prompt: PromptRecord;
   priority?: boolean;
   labels: PromptCardLabels;
+  keyword?: string;
 };
 
-export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
+export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProps) {
   const coverUrl = isSafeImageUrl(prompt.cover) ? prompt.cover : "/placeholder.svg";
   const router = useRouter();
   const detailHref = `/prompts/${prompt.id}`;
@@ -162,8 +164,12 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
           </button>
           <div className="card-kicker">[{prompt.modelLabel}] / ID {prompt.id}</div>
           <div className="card-kicker card-author">BY {prompt.author || "ANONYMOUS"}</div>
-          <h3 className="prompt-title">{prompt.title}</h3>
-          <p className="prompt-copy">{excerpt}</p>
+          <h3 className="prompt-title">
+            <HighlightText keyword={keyword} text={prompt.title} />
+          </h3>
+          <p className="prompt-copy">
+            <HighlightText keyword={keyword} text={excerpt} />
+          </p>
           <div className="tag-row">
             {prompt.styleTags.map((tag) => (
               <span className="tag" key={tag}>

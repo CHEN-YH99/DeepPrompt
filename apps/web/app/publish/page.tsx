@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { ImageUploadField } from "@/components/image-upload-field";
 import { PublishForm } from "@/components/publish-form";
+import { PublishFormGuard } from "@/components/publish-form-guard";
 import { SectionHeader } from "@/components/section-header";
 import { TagPicker } from "@/components/tag-picker";
 import { defaultModel, fetchModels } from "@/lib/data";
@@ -161,6 +162,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
             method="post"
             style={{ marginTop: 18 }}
           >
+            <PublishFormGuard />
             <div className="form-split">
               <div className="section" data-unit="FORM / LEFT">
                 <div className="form-stack">

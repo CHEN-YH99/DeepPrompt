@@ -251,7 +251,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           ) : (
             <div className="prompt-grid" style={{ marginTop: 18 }}>
               {snapshot.items.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} labels={{ metrics: dict.common.metrics, actions: dict.common.actions }} />
+                <PromptCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  keyword={keyword}
+                  labels={{ metrics: dict.common.metrics, actions: dict.common.actions }}
+                />
               ))}
             </div>
           )}

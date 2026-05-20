@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { BackToSearch } from "@/components/back-to-search";
 import { InteractionBar } from "@/components/interaction-bar";
 import { PromptGallery } from "@/components/prompt-gallery";
+import { PromptTextDisplay } from "@/components/prompt-text-display";
 import {
   fetchCurrentUser,
   fetchModels,
@@ -207,12 +208,12 @@ export default async function PromptDetailPage({ params, searchParams }: PromptD
             </div>
             <div>
               <div className="field-label">{dict.detail.promptText}</div>
-              <p className="detail-copy">{prompt.promptText}</p>
+              <PromptTextDisplay text={prompt.promptText} />
             </div>
             {prompt.negativePrompt ? (
               <div>
                 <div className="field-label">{dict.detail.negativePrompt}</div>
-                <p className="detail-copy">{prompt.negativePrompt}</p>
+                <PromptTextDisplay text={prompt.negativePrompt} />
               </div>
             ) : null}
             <div>

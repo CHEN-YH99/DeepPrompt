@@ -523,6 +523,61 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   top: 8px;
 }
 
+/* #22 PromptTextDisplay 参数高亮 + 折叠 */
+.prompt-text-display {
+  margin-top: 6px;
+}
+
+.prompt-text-content {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.prompt-param {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.prompt-keyword {
+  color: var(--danger, #ef4444);
+  font-weight: 600;
+}
+
+.prompt-text-fade {
+  color: var(--text-dim);
+}
+
+.prompt-text-toggle {
+  display: inline-block;
+  margin-top: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+.prompt-text-toggle:hover {
+  color: var(--text);
+}
+
+/* #23 搜索关键词高亮 */
+.search-highlight {
+  background: rgba(74, 246, 38, 0.18);
+  color: var(--ok, #4af626);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
 .nav-link {
   display: inline-flex;
   align-items: center;
