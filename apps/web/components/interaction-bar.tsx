@@ -89,7 +89,7 @@ export function InteractionBar({
   return (
     <div className="action-row" data-component="interaction-bar">
       <button
-        className={liked ? "action" : "ghost-action"}
+        className={`${liked ? "action" : "ghost-action"}${busy === "like" ? " btn-loading" : ""}`}
         data-active={liked}
         disabled={busy === "like"}
         onClick={() => handleToggle("like")}
@@ -98,7 +98,7 @@ export function InteractionBar({
         {likeLabel} · {likeCount}
       </button>
       <button
-        className={collected ? "action" : "ghost-action"}
+        className={`${collected ? "action" : "ghost-action"}${busy === "collect" ? " btn-loading" : ""}`}
         data-active={collected}
         disabled={busy === "collect"}
         onClick={() => handleToggle("collect")}

@@ -578,6 +578,113 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   border-radius: 2px;
 }
 
+/* Loading 动画系统 */
+
+/* 按钮级 loading：扫描线从左到右 */
+@keyframes btn-loading-scan {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.btn-loading {
+  pointer-events: none;
+  opacity: 0.7;
+  background-image: linear-gradient(
+    90deg,
+    transparent 30%,
+    rgba(74, 246, 38, 0.12) 50%,
+    transparent 70%
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: btn-loading-scan 1.2s linear infinite;
+}
+
+/* 骨架屏卡片 */
+@keyframes skeleton-scan {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-card {
+  background: var(--panel-2);
+  background-image: linear-gradient(
+    90deg,
+    var(--panel-2) 0%,
+    var(--line) 50%,
+    var(--panel-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-scan 1.8s linear infinite;
+  border: 1px solid var(--line);
+  aspect-ratio: 4 / 3;
+}
+
+.skeleton-card-short {
+  aspect-ratio: auto;
+  height: 18px;
+  margin-top: 10px;
+  width: 60%;
+}
+
+.skeleton-card-text {
+  aspect-ratio: auto;
+  height: 12px;
+  margin-top: 8px;
+  width: 85%;
+}
+
+/* 搜索防抖 loading 遮罩 */
+.search-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 11, 11, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+  animation: fade-in 0.15s ease;
+}
+
+.search-loading-indicator {
+  font-size: 14px;
+  color: var(--text-muted);
+  animation: spin-indicator 0.8s linear infinite;
+}
+
+/* AutoSubmitForm[data-loading="true"] 时给相邻结果区加遮罩效果 */
+.filter-panel:has(form[data-loading="true"]) ~ .section {
+  position: relative;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+@keyframes spin-indicator {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-loading {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  .skeleton-card {
+    animation: none;
+  }
+
+  .search-loading-indicator {
+    animation: none;
+  }
+}
+
 .nav-link {
   display: inline-flex;
   align-items: center;

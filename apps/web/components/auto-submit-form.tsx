@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, type FormEvent, type FormHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent, type FormHTMLAttributes, type ReactNode } from "react";
 
 type AutoSubmitFormProps = Omit<FormHTMLAttributes<HTMLFormElement>, "method" | "action"> & {
   children: ReactNode;
@@ -21,6 +21,8 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingDebounce, setPendingDebounce] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     return () => {
@@ -35,6 +37,7 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    setPendingDebounce(false);
   }
 
   function navigate(form: HTMLFormElement) {
@@ -55,7 +58,9 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
     }
 
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    startTransition(() => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    });
   }
 
   function handleChange(event: FormEvent<HTMLFormElement>) {
@@ -72,8 +77,10 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
     if (isTextInput(target)) {
       const form = event.currentTarget;
       cancelPendingDebounce();
+      setPendingDebounce(true);
       debounceTimerRef.current = setTimeout(() => {
         debounceTimerRef.current = null;
+        setPendingDebounce(false);
         navigate(form);
       }, TEXT_DEBOUNCE_MS);
     }
@@ -85,8 +92,15 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
     navigate(event.currentTarget);
   }
 
+  const showLoading = pendingDebounce || isPending;
+
   return (
-    <form onChange={handleChange} onSubmit={handleSubmit} {...props}>
+    <form
+      onChange={handleChange}
+      onSubmit={handleSubmit}
+      data-loading={showLoading}
+      {...props}
+    >
       {children}
     </form>
   );
