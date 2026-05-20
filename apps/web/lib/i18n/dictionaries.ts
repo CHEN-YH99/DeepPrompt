@@ -248,6 +248,7 @@ export type Dictionary = {
     emptyStateLogged: string;
     emptyStateLocked: string;
     emptyTip: string;
+    emptyCta: string;
   };
   interactions: {
     likeAction: string;
@@ -642,7 +643,8 @@ const zhCN: Dictionary = {
     emptyName: "暂无提示词",
     emptyStateLogged: "空",
     emptyStateLocked: "未登录",
-    emptyTip: "先去发布第一条"
+    emptyTip: "先去发布第一条",
+    emptyCta: "立即发布第一个 Prompt"
   },
   interactions: {
     likeAction: "点赞",
@@ -1084,7 +1086,8 @@ const enUS: Dictionary = {
     emptyName: "NO PROMPT YET",
     emptyStateLogged: "EMPTY",
     emptyStateLocked: "LOCKED",
-    emptyTip: "PUBLISH FIRST PROMPT"
+    emptyTip: "PUBLISH FIRST PROMPT",
+    emptyCta: "PUBLISH YOUR FIRST PROMPT"
   },
   interactions: {
     likeAction: "LIKE",

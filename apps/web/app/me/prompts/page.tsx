@@ -171,17 +171,22 @@ export default async function MyPromptsPage({ searchParams }: MyPromptsPageProps
                 </div>
               ))
             ) : (
-              <div className={`table-row${isAdmin ? " admin-row" : ""}`}>
-                <span>{dict.myPrompts.emptyName}</span>
-                {isAdmin && <span>--</span>}
-                <span>
-                  {currentUser ? dict.myPrompts.emptyStateLogged : dict.myPrompts.emptyStateLocked}
-                </span>
-                <span>--</span>
-                <span>
-                  {currentUser ? dict.myPrompts.emptyTip : dict.common.actions.loginFirst}
-                </span>
-                {isAdmin && <span></span>}
+              <div className="telemetry-card empty-state-card" style={{ marginTop: 18 }}>
+                <div className="card-kicker">{dict.myPrompts.emptyName}</div>
+                <p className="mono-copy">
+                  {currentUser ? dict.myPrompts.emptyTip : dict.myPrompts.emptyStateLocked}
+                </p>
+                <div className="action-row" style={{ marginTop: 12 }}>
+                  {currentUser ? (
+                    <Link className="action" href="/publish">
+                      {dict.myPrompts.emptyCta}
+                    </Link>
+                  ) : (
+                    <Link className="action" href="/login">
+                      {dict.common.actions.loginFirst}
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </div>
