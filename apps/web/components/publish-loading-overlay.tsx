@@ -48,6 +48,14 @@ export function PublishLoadingOverlay() {
       const submitter = event.submitter as HTMLButtonElement | null;
       const value: Intent = submitter?.value === "draft" ? "draft" : "submit";
 
+      const submitButtons = form!.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
+      submitButtons.forEach((btn) => {
+        btn.disabled = true;
+        if (btn === submitter) {
+          btn.classList.add("btn-loading");
+        }
+      });
+
       const hidden = document.createElement("input");
       hidden.type = "hidden";
       hidden.name = "intent";

@@ -51,6 +51,7 @@ export function RegisterForm({
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [touched, setTouched] = useState({ email: false, password: false });
+  const [submitting, setSubmitting] = useState(false);
   const { level: strength, hints: strengthHints } = getPasswordStrength(password);
 
   const validateEmail = useCallback((value: string) => {
@@ -91,7 +92,9 @@ export function RegisterForm({
     setTouched({ email: true, password: true });
     if (emailErr || pwdErr) {
       e.preventDefault();
+      return;
     }
+    setSubmitting(true);
   }, [email, password, validateEmail, validatePassword]);
 
   const strengthLabels: Record<string, string> = {
@@ -201,7 +204,11 @@ export function RegisterForm({
           />
         </div>
         <div className="action-row">
-          <button className="action" type="submit">
+          <button
+            className={`action${submitting ? " btn-loading" : ""}`}
+            disabled={submitting}
+            type="submit"
+          >
             {commonLabels.actions.createAccount}
           </button>
           <a className="ghost-action" href="/login">

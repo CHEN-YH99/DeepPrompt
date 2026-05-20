@@ -28,15 +28,17 @@ export function LoginForm({
 }: LoginFormProps) {
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaHint, setCaptchaHint] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
-      // Turnstile widget 在表单中注入 input[name="cf-turnstile-response"]，
-      // 这里再做一道前端拦截，未完成验证时直接阻止提交。
       if (!captchaToken) {
         e.preventDefault();
         setCaptchaHint((labels as Record<string, string>).captchaHint ?? "请先完成验证");
+        return;
       }
+      // 表单走原生提交跳转，提交瞬间锁住按钮防重复点击
+      setSubmitting(true);
     },
     [captchaToken, labels]
   );
@@ -103,7 +105,11 @@ export function LoginForm({
           <div className="field-error">{captchaHint}</div>
         ) : null}
         <div className="action-row">
-          <button className="action" type="submit">
+          <button
+            className={`action${submitting ? " btn-loading" : ""}`}
+            disabled={submitting}
+            type="submit"
+          >
             {commonLabels.actions.enterSystem}
           </button>
           <a className="ghost-action" href="/register">

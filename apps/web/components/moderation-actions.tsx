@@ -36,17 +36,20 @@ export function ModerationActions({ promptId, labels }: ModerationActionsProps) 
 
   return (
     <div className="action-row" style={{ flexWrap: "wrap" }}>
-      {ACTIONS.map((entry) => (
-        <button
-          className={entry.styleKey}
-          disabled={pendingAction !== null}
-          key={entry.action}
-          onClick={() => commit(entry.action)}
-          type="button"
-        >
-          {labels[entry.labelKey]}
-        </button>
-      ))}
+      {ACTIONS.map((entry) => {
+        const isActive = pendingAction === entry.action;
+        return (
+          <button
+            className={`${entry.styleKey}${isActive ? " btn-loading" : ""}`}
+            disabled={pendingAction !== null}
+            key={entry.action}
+            onClick={() => commit(entry.action)}
+            type="button"
+          >
+            {labels[entry.labelKey]}
+          </button>
+        );
+      })}
     </div>
   );
 }

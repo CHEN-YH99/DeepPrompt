@@ -76,7 +76,8 @@ export function CopyPromptButton({ promptId, promptText, labels }: CopyPromptBut
   return (
     <>
       <button
-        className={copyState === "idle" ? "ghost-action" : "action"}
+        className={`${copyState === "idle" ? "ghost-action" : "action"}${isPending ? " btn-loading" : ""}`}
+        disabled={isPending}
         onClick={handleCopy}
         type="button"
       >
