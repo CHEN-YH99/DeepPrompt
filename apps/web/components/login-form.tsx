@@ -10,10 +10,13 @@ const SliderCaptcha = dynamic(
   { ssr: false }
 );
 
+// 之前用 message.includes("错误") 判断红绿，i18n 一翻就翻车，现在直接由上游传 kind。
+type LoginMessage = { kind: "success" | "error"; text: string } | null;
+
 type LoginFormProps = {
   labels: Dictionary["login"];
   commonLabels: Dictionary["common"];
-  message: string;
+  message: LoginMessage;
   presetAccount: string;
 };
 
@@ -43,12 +46,14 @@ export function LoginForm({
     setCaptchaHint("");
   }, []);
 
-  const isMessageSuccess = message && !message.includes("错误") && !message.includes("不可达");
+  const isMessageSuccess = message?.kind === "success";
 
   return (
     <>
       {message ? (
         <div
+          role={isMessageSuccess ? "status" : "alert"}
+          aria-live={isMessageSuccess ? "polite" : "assertive"}
           style={{
             marginTop: 14,
             border: isMessageSuccess ? "1px solid #22c55e" : "1px solid #ef4444",
@@ -57,7 +62,7 @@ export function LoginForm({
             background: isMessageSuccess ? "rgba(20, 83, 45, 0.25)" : "rgba(127, 29, 29, 0.28)"
           }}
         >
-          {message}
+          {message.text}
         </div>
       ) : null}
       <form

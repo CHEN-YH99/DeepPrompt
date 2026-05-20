@@ -12,22 +12,31 @@ type LoginPageProps = {
   }>;
 };
 
+// 登录页消息分类：
+// - success：注册成功跳回登录提示
+// - error：所有失败原因（凭证错、验证码、API 不可达、账号锁定）
+// 之前用 message.includes("错误") 判断，i18n 一翻就翻车，所以现在直接由后端语义决定。
+type LoginMessage = { kind: "success" | "error"; text: string } | null;
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const dict = getDictionary();
 
-  function getLoginMessage(sp?: { error?: string; registered?: string; retry_after?: string }) {
-    if (sp?.registered === "1") return dict.login.msgRegistered;
-    if (sp?.error === "invalid_credentials") return dict.login.msgInvalid;
-    if (sp?.error === "captcha_required") return dict.login.captchaHint;
-    if (sp?.error === "api_unreachable") return dict.login.msgApiUnreachable;
+  function getLoginMessage(sp?: { error?: string; registered?: string; retry_after?: string }): LoginMessage {
+    if (sp?.registered === "1") return { kind: "success", text: dict.login.msgRegistered };
+    if (sp?.error === "invalid_credentials") return { kind: "error", text: dict.login.msgInvalid };
+    if (sp?.error === "captcha_required") return { kind: "error", text: dict.login.captchaHint };
+    if (sp?.error === "api_unreachable") return { kind: "error", text: dict.login.msgApiUnreachable };
     if (sp?.error === "account_locked") {
       const seconds = Number(sp.retry_after ?? "0");
       const minutes = seconds > 0 ? Math.ceil(seconds / 60) : null;
-      return minutes
-        ? `${dict.login.msgAccountLocked}（约 ${minutes} 分钟）`
-        : dict.login.msgAccountLocked;
+      return {
+        kind: "error",
+        text: minutes
+          ? `${dict.login.msgAccountLocked}（约 ${minutes} 分钟）`
+          : dict.login.msgAccountLocked
+      };
     }
-    return "";
+    return null;
   }
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;

@@ -7,7 +7,9 @@ type AutoSubmitFormProps = Omit<FormHTMLAttributes<HTMLFormElement>, "method" | 
   children: ReactNode;
 };
 
-const CLEAR_DEBOUNCE_MS = 200;
+// 文本输入统一走 350ms 防抖（业内标配），不再区分"清空"和"有内容"特例。
+// checkbox / select 仍然立即触发，符合用户对筛选器的直觉。
+const TEXT_DEBOUNCE_MS = 350;
 
 function isTextInput(target: EventTarget | null): target is HTMLInputElement {
   if (!(target instanceof HTMLInputElement)) return false;
@@ -18,20 +20,20 @@ function isTextInput(target: EventTarget | null): target is HTMLInputElement {
 export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (clearTimerRef.current !== null) {
-        clearTimeout(clearTimerRef.current);
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
   }, []);
 
-  function cancelPendingClear() {
-    if (clearTimerRef.current !== null) {
-      clearTimeout(clearTimerRef.current);
-      clearTimerRef.current = null;
+  function cancelPendingDebounce() {
+    if (debounceTimerRef.current !== null) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
   }
 
@@ -62,28 +64,24 @@ export function AutoSubmitForm({ children, ...props }: AutoSubmitFormProps) {
       (target instanceof HTMLInputElement && target.type === "checkbox") ||
       target instanceof HTMLSelectElement
     ) {
-      cancelPendingClear();
+      cancelPendingDebounce();
       navigate(event.currentTarget);
       return;
     }
 
     if (isTextInput(target)) {
-      if (target.value === "") {
-        const form = event.currentTarget;
-        cancelPendingClear();
-        clearTimerRef.current = setTimeout(() => {
-          clearTimerRef.current = null;
-          navigate(form);
-        }, CLEAR_DEBOUNCE_MS);
-      } else {
-        cancelPendingClear();
-      }
+      const form = event.currentTarget;
+      cancelPendingDebounce();
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        navigate(form);
+      }, TEXT_DEBOUNCE_MS);
     }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    cancelPendingClear();
+    cancelPendingDebounce();
     navigate(event.currentTarget);
   }
 

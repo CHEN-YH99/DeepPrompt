@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 import { CopyPromptButton } from "@/components/copy-prompt-button";
 import type { PromptRecord } from "@/lib/data";
@@ -58,8 +58,45 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
   const [isHovering, setIsHovering] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
+  // Lightbox 无障碍：触发元素引用，关闭后焦点回去；关闭按钮引用，打开后焦点过去。
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // ESC 关闭 + 简易焦点陷阱（关闭按钮是 dialog 内唯一可聚焦元素，Tab 始终绕回它）。
+  useEffect(() => {
+    if (!lightboxSrc) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+    // 把焦点送进 dialog
+    closeButtonRef.current?.focus();
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setLightboxSrc(null);
+        return;
+      }
+      if (event.key === "Tab") {
+        // 焦点陷阱：dialog 里只有一个关闭按钮，Tab/Shift+Tab 都钉死在它身上。
+        event.preventDefault();
+        closeButtonRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      // 关闭后焦点还回触发元素，键盘用户不会丢上下文。
+      const restoreTo = triggerRef.current ?? previouslyFocused;
+      restoreTo?.focus?.();
+    };
+  }, [lightboxSrc]);
+
   const handleThumbMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLButtonElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const nx = (e.clientX - rect.left) / rect.width - 0.5;
       const ny = (e.clientY - rect.top) / rect.height - 0.5;
@@ -75,20 +112,26 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
   }, []);
 
   const handleThumbClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       e.preventDefault();
+      triggerRef.current = e.currentTarget;
       setLightboxSrc(coverUrl);
     },
     [coverUrl]
   );
 
+  const closeLabel = labels.actions.closeLightbox ?? "关闭预览";
+  const lightboxTitleId = `lightbox-title-${prompt.id}`;
+
   return (
     <>
       <div className="prompt-card-link" onClick={handleCardClick} role="article" style={{ cursor: "pointer" }}>
         <article className="prompt-card">
-          <div
+          <button
+            type="button"
             className="prompt-thumb"
+            aria-label={closeLabel === "关闭预览" ? `查看 ${prompt.title} 大图` : `View ${prompt.title} preview`}
             onMouseEnter={() => setIsHovering(true)}
             onMouseMove={handleThumbMove}
             onMouseLeave={handleThumbLeave}
@@ -116,7 +159,7 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
                 opacity: isHovering ? 1 : 0
               }}
             />
-          </div>
+          </button>
           <div className="card-kicker">[{prompt.modelLabel}] / ID {prompt.id}</div>
           <div className="card-kicker card-author">BY {prompt.author || "ANONYMOUS"}</div>
           <h3 className="prompt-title">{prompt.title}</h3>
@@ -156,10 +199,34 @@ export function PromptCard({ prompt, priority, labels }: PromptCardProps) {
       </div>
 
       {lightboxSrc && (
-        <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-          <div className="lightbox-image">
+        <div
+          className="lightbox-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={lightboxTitleId}
+          onClick={() => setLightboxSrc(null)}
+        >
+          <span id={lightboxTitleId} className="sr-only">
+            {prompt.title}
+          </span>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="lightbox-close"
+            aria-label={closeLabel}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxSrc(null);
+            }}
+          >
+            ×
+          </button>
+          <div
+            className="lightbox-image"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Image
-              alt=""
+              alt={prompt.title}
               src={lightboxSrc}
               fill
               sizes="90vw"

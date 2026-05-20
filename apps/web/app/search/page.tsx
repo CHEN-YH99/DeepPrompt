@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PromptCard } from "@/components/prompt-card";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { CollapsibleCheckboxGroup } from "@/components/collapsible-checkbox-group";
+import { ResetFiltersButton } from "@/components/reset-filters-button";
 import { SectionHeader } from "@/components/section-header";
 import { SEARCH_SORT_VALUES, fetchModels, fetchPromptList } from "@/lib/data";
 import { getDictionary, applyVars } from "@/lib/i18n";
@@ -110,9 +111,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <a className="action" href="#query-panel">
               {dict.common.actions.executeQuery}
             </a>
-            <a className="ghost-action" href="/search">
-              {dict.common.actions.resetFilters}
-            </a>
+            <ResetFiltersButton label={dict.common.actions.resetFilters} />
           </div>
         </div>
         <div className="section" data-unit="UNIT / SEARCH-02">
