@@ -24,6 +24,8 @@
 html {
   background: var(--bg);
   color: var(--text);
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -311,7 +313,8 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   width: min(var(--max-width), 100%);
   margin: 0 auto;
   padding: 0 var(--pad) var(--pad);
-  overflow-x: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .topbar {
