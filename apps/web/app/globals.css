@@ -1122,6 +1122,54 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   white-space: nowrap;
 }
 
+/* TagPicker 已选预览 chip 行 */
+.tag-picker-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tag-chip:hover,
+.tag-chip:focus-visible {
+  border-color: var(--accent, #e53e3e);
+  background: var(--panel);
+}
+
+.tag-chip-label {
+  text-transform: none;
+}
+
+.tag-chip-remove {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.tag-chip:hover .tag-chip-remove {
+  opacity: 1;
+}
+
+.field-label-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .copy-toast {
     transition: none;

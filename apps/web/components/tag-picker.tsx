@@ -50,9 +50,34 @@ export function TagPicker({
 
   const atMax = selected.length >= max;
 
+  // 已选标签的 label 映射，用于 chip 显示
+  const optionLabelMap = new Map(options.map((o) => [o.value, o.label]));
+
   return (
     <div className="field">
-      <div className="field-label">{label}</div>
+      <div className="field-label">
+        {label}
+        {selected.length > 0 ? (
+          <span className="field-label-count"> ({selected.length}/{max})</span>
+        ) : null}
+      </div>
+      {selected.length > 0 ? (
+        <div className="tag-picker-selected" role="list" aria-label={`${label} 已选`}>
+          {selected.map((value) => (
+            <button
+              key={value}
+              type="button"
+              className="tag-chip"
+              role="listitem"
+              onClick={() => toggle(value)}
+              aria-label={`移除 ${optionLabelMap.get(value) ?? value}`}
+            >
+              <span className="tag-chip-label">{optionLabelMap.get(value) ?? value}</span>
+              <span className="tag-chip-remove" aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {atMax ? <div className="field-hint">{maxHintLabel}</div> : null}
       <div className="checkbox-grid">
         {options.map((option) => {
