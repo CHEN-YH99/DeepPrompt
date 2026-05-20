@@ -680,25 +680,40 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   color: #4af626;
   border: 1px solid rgba(74, 246, 38, 0.25);
 }
+.status-badge.approved::before {
+  content: "✓ ";
+}
 .status-badge.pending {
   background: rgba(234, 179, 8, 0.12);
   color: #eab308;
   border: 1px solid rgba(234, 179, 8, 0.25);
+}
+.status-badge.pending::before {
+  content: "◷ ";
 }
 .status-badge.draft {
   background: rgba(127, 127, 109, 0.15);
   color: #9f9f97;
   border: 1px solid rgba(159, 159, 151, 0.2);
 }
+.status-badge.draft::before {
+  content: "✎ ";
+}
 .status-badge.rejected {
   background: rgba(230, 25, 25, 0.12);
   color: #e61919;
   border: 1px solid rgba(230, 25, 25, 0.25);
 }
+.status-badge.rejected::before {
+  content: "✕ ";
+}
 .status-badge.archived {
   background: rgba(114, 114, 109, 0.12);
   color: #72726d;
   border: 1px solid rgba(114, 114, 109, 0.2);
+}
+.status-badge.archived::before {
+  content: "▪ ";
 }
 
 .kpi-row {
