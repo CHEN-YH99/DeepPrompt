@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { cookies } from "next/headers";
 
+import { ImageUploadField } from "@/components/image-upload-field";
 import { PublishForm } from "@/components/publish-form";
 import { SectionHeader } from "@/components/section-header";
 import { TagPicker } from "@/components/tag-picker";
@@ -248,16 +249,12 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     maxHintLabel={dict.publish.tagMaxHint}
                     initialSelected={draft.color_tags ?? []}
                   />
-                  <div className="field">
-                    <label className="field-label" htmlFor="images">
-                      {dict.publish.imageFiles}
-                    </label>
-                    <input accept="image/*" id="images" multiple name="images" type="file" />
-                    <div className="field-hint">
-                      {dict.publish.imageHint}
-                      {shouldRestoreDraft ? "（图片需要重新选择）" : ""}
-                    </div>
-                  </div>
+                  <ImageUploadField
+                    name="images"
+                    label={dict.publish.imageFiles}
+                    hint={dict.publish.imageHint}
+                    extraHint={shouldRestoreDraft ? "（图片需要重新选择）" : undefined}
+                  />
                   <div className="field">
                     <label className="field-label" htmlFor="image-url">
                       {dict.publish.imageUrl}
