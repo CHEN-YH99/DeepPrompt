@@ -776,6 +776,47 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   margin-left: 8px;
 }
 
+.strength-hints {
+  margin: 4px 0 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+}
+
+.password-input-wrap input {
+  flex: 1;
+  padding-right: 36px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: var(--text);
+}
+
 .nav-user {
   background: rgba(74, 246, 38, 0.1);
   color: var(--ok);

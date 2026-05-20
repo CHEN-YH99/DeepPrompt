@@ -15,10 +15,27 @@ type RegisterFormProps = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{10,}$/;
 
-function getPasswordStrength(pwd: string): "weak" | "medium" | "strong" {
-  if (pwd.length < 10 || !/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) return "weak";
-  if (pwd.length >= 14 && /[^A-Za-z\d]/.test(pwd) && /[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) return "strong";
-  return "medium";
+type StrengthResult = {
+  level: "weak" | "medium" | "strong";
+  hints: string[];
+};
+
+function getPasswordStrength(pwd: string): StrengthResult {
+  const hints: string[] = [];
+
+  if (pwd.length < 10) hints.push(`还差 ${10 - pwd.length} 个字符（至少 10 位）`);
+  if (!/[a-z]/.test(pwd)) hints.push("加一个小写字母");
+  if (!/[A-Z]/.test(pwd)) hints.push("加一个大写字母");
+  if (!/\d/.test(pwd)) hints.push("加一个数字");
+  if (!/[^A-Za-z\d]/.test(pwd)) hints.push("建议加特殊字符（如 !@#$）");
+
+  if (pwd.length < 10 || !/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) {
+    return { level: "weak", hints };
+  }
+  if (pwd.length >= 14 && /[^A-Za-z\d]/.test(pwd) && /[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) {
+    return { level: "strong", hints: [] };
+  }
+  return { level: "medium", hints };
 }
 
 export function RegisterForm({
@@ -30,10 +47,11 @@ export function RegisterForm({
 }: RegisterFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [touched, setTouched] = useState({ email: false, password: false });
-  const strength = getPasswordStrength(password);
+  const { level: strength, hints: strengthHints } = getPasswordStrength(password);
 
   const validateEmail = useCallback((value: string) => {
     if (!value) return "";
@@ -42,7 +60,7 @@ export function RegisterForm({
 
   const validatePassword = useCallback((value: string) => {
     if (!value) return "";
-    return PASSWORD_RE.test(value) ? "" : (labels as Record<string, string>).passwordInvalid ?? "密码至少8位，需含字母和数字";
+    return PASSWORD_RE.test(value) ? "" : (labels as Record<string, string>).passwordInvalid ?? "密码至少10位，需含字母和数字";
   }, [labels]);
 
   const handleEmailBlur = useCallback(() => {
@@ -125,23 +143,43 @@ export function RegisterForm({
           <label className="field-label" htmlFor="password">
             {(labels as Record<string, string>).password}
           </label>
-          <input
-            id="password"
-            minLength={8}
-            name="password"
-            onChange={(e) => handlePasswordChange(e.target.value)}
-            onBlur={handlePasswordBlur}
-            required
-            type="password"
-            value={password}
-          />
+          <div className="password-input-wrap">
+            <input
+              id="password"
+              minLength={8}
+              name="password"
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              onBlur={handlePasswordBlur}
+              required
+              type={showPassword ? "text" : "password"}
+              value={password}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "隐藏密码" : "显示密码"}
+              tabIndex={-1}
+            >
+              {showPassword ? "◉" : "◎"}
+            </button>
+          </div>
           {password.length > 0 && (
-            <div className="strength-bar">
-              <div className="strength-segment" data-active={strength === "weak" || strength === "medium" || strength === "strong"} />
-              <div className="strength-segment" data-active={strength === "medium" || strength === "strong"} />
-              <div className="strength-segment" data-active={strength === "strong"} />
-              <span className="strength-label">{strengthLabels[strength]}</span>
-            </div>
+            <>
+              <div className="strength-bar">
+                <div className="strength-segment" data-active={strength === "weak" || strength === "medium" || strength === "strong"} />
+                <div className="strength-segment" data-active={strength === "medium" || strength === "strong"} />
+                <div className="strength-segment" data-active={strength === "strong"} />
+                <span className="strength-label">{strengthLabels[strength]}</span>
+              </div>
+              {strengthHints.length > 0 && (
+                <ul className="strength-hints">
+                  {strengthHints.map((hint) => (
+                    <li key={hint}>{hint}</li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
           {touched.password && passwordError ? (
             <div className="field-error">{passwordError}</div>
