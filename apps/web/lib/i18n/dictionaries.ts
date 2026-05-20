@@ -212,6 +212,7 @@ export type Dictionary = {
     relatedEmpty: string;
     openRelated: string;
     createdNotice: string;
+    backToSearch: string;
   };
   myPrompts: {
     heroKicker: string;
@@ -606,7 +607,8 @@ const zhCN: Dictionary = {
     relatedEyebrow: "[ 相关档案 ]",
     relatedEmpty: "暂无相关提示词，等同主题作品入库后这里会出现。",
     openRelated: "查看相关档案",
-    createdNotice: "提示词已发布成功，前台现在已经能直接看到。"
+    createdNotice: "提示词已发布成功，前台现在已经能直接看到。",
+    backToSearch: "返回搜索结果"
   },
   myPrompts: {
     heroKicker: "[ 创作者控制台 · 个人空间 ]",
@@ -1046,7 +1048,8 @@ const enUS: Dictionary = {
     relatedEyebrow: "[ RELATED DOSSIERS ]",
     relatedEmpty: "No related prompts yet. They will appear here once similar entries land.",
     openRelated: "OPEN RELATED ENTRY",
-    createdNotice: "Prompt published. Visible on the public list now."
+    createdNotice: "Prompt published. Visible on the public list now.",
+    backToSearch: "BACK TO SEARCH"
   },
   myPrompts: {
     heroKicker: "[ CREATOR DESK / PERSONAL CONSOLE ]",

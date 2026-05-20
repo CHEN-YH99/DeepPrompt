@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { BackToSearch } from "@/components/back-to-search";
 import { InteractionBar } from "@/components/interaction-bar";
 import { PromptGallery } from "@/components/prompt-gallery";
 import {
@@ -123,6 +124,7 @@ export default async function PromptDetailPage({ params, searchParams }: PromptD
       />
       <section className="page-grid">
         <div className="section" data-unit="UNIT / DETAIL-01">
+          <BackToSearch label={dict.detail.backToSearch} />
           <div className="eyebrow">{applyVars(dict.detail.promptKicker, { id: prompt.id })}</div>
           <h1 className="headline">{prompt.title}</h1>
           <p className="lede">{prompt.excerpt}</p>
