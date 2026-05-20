@@ -187,7 +187,10 @@ export function RegisterForm({
         </div>
         <div className="field">
           <label className="field-label" htmlFor="invite_code">
-            邀请码{inviteRequired ? "（必填）" : "（可选）"}
+            {(labels as Record<string, string>).inviteCode}
+            {inviteRequired
+              ? (labels as Record<string, string>).inviteRequired
+              : (labels as Record<string, string>).inviteOptional}
           </label>
           <input
             defaultValue={presetInvite}

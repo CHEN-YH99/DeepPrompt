@@ -359,6 +359,9 @@ export type Dictionary = {
     strengthWeak: string;
     strengthMedium: string;
     strengthStrong: string;
+    inviteCode: string;
+    inviteRequired: string;
+    inviteOptional: string;
     msgExists: string;
     msgInvalid: string;
     msgApiUnreachable: string;
@@ -755,6 +758,9 @@ const zhCN: Dictionary = {
     strengthWeak: "弱",
     strengthMedium: "中",
     strengthStrong: "强",
+    inviteCode: "邀请码",
+    inviteRequired: "（必填）",
+    inviteOptional: "（可选）",
     msgExists: "该邮箱或手机号已注册，请直接登录。",
     msgInvalid: "注册信息不完整或格式不正确，请检查后重试。",
     msgApiUnreachable: "后端服务不可达，请确认 API 服务已启动。",
@@ -1196,6 +1202,9 @@ const enUS: Dictionary = {
     strengthWeak: "WEAK",
     strengthMedium: "MEDIUM",
     strengthStrong: "STRONG",
+    inviteCode: "INVITE CODE",
+    inviteRequired: " (REQUIRED)",
+    inviteOptional: " (OPTIONAL)",
     msgExists: "Email or phone already registered. Please sign in directly.",
     msgInvalid: "Registration data is incomplete or invalid. Please review and retry.",
     msgApiUnreachable: "API service is unreachable. Make sure the API is running.",
