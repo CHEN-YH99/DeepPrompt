@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ModelRecord } from "@/lib/data";
 import type { Dictionary } from "@/lib/i18n";
@@ -34,6 +34,44 @@ export function PublishForm({
 
   const paramSchema = activeModel?.paramSchema ?? [];
 
+  const userTouchedAR = useRef(false);
+  const paramSchemaRef = useRef(paramSchema);
+  paramSchemaRef.current = paramSchema;
+
+  useEffect(() => {
+    function handleAspectDetected(e: Event) {
+      if (userTouchedAR.current) return;
+      const { width, height } = (e as CustomEvent).detail;
+      const schema = paramSchemaRef.current;
+      const arField = schema.find(
+        (f) => f.key === "ar" && f.input_type === "select" && f.options && f.options.length > 0
+      );
+      if (!arField || !arField.options) return;
+
+      const options = arField.options;
+      const imageRatio = width / height;
+      let bestOption = options[0]!.value;
+      let bestDiff = Infinity;
+
+      for (const opt of options) {
+        const parts = opt.value.split(":");
+        const w = Number(parts[0]);
+        const h = Number(parts[1]);
+        if (!w || !h) continue;
+        const diff = Math.abs(imageRatio - w / h);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestOption = opt.value;
+        }
+      }
+
+      setParamValues((prev) => ({ ...prev, ar: bestOption }));
+    }
+
+    document.addEventListener("image-aspect-detected", handleAspectDetected);
+    return () => document.removeEventListener("image-aspect-detected", handleAspectDetected);
+  }, []);
+
   return (
     <div className="form-stack">
       <div className="field">
@@ -43,7 +81,10 @@ export function PublishForm({
         <select
           id="model"
           name="model_id"
-          onChange={(event) => setModelId(event.target.value)}
+          onChange={(event) => {
+            setModelId(event.target.value);
+            userTouchedAR.current = false;
+          }}
           required
           value={modelId}
         >
@@ -71,14 +112,21 @@ export function PublishForm({
             {paramSchema.map((field) => {
               const fieldName = `param__${field.key}`;
               const currentValue = paramValues[field.key] ?? String(field.default_value ?? "");
-              const onChange = (value: string) =>
+              const onChange = (value: string) => {
+                if (field.key === "ar") userTouchedAR.current = true;
                 setParamValues((prev) => ({ ...prev, [field.key]: value }));
+              };
 
               if (field.input_type === "select" && field.options && field.options.length > 0) {
                 return (
                   <div className="field" key={field.key}>
                     <label className="field-label" htmlFor={fieldName}>
                       {field.label}
+                      {field.key === "ar" ? (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: "var(--accent, #60a5fa)" }}>
+                          {labels.arAutoHint}
+                        </span>
+                      ) : null}
                     </label>
                     <select
                       id={fieldName}

@@ -50,6 +50,20 @@ export function ImageUploadField({
         size: formatFileSize(file.size)
       });
     }
+    if (newPreviews.length > 0) {
+      const last = newPreviews[newPreviews.length - 1]!;
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+          document.dispatchEvent(
+            new CustomEvent("image-aspect-detected", {
+              detail: { width: img.naturalWidth, height: img.naturalHeight }
+            })
+          );
+        }
+      };
+      img.src = last.url;
+    }
     setPreviews((prev) => [...prev, ...newPreviews]);
   }, []);
 

@@ -172,6 +172,7 @@ export type Dictionary = {
     modelNegative: string;
     paramHeader: string;
     paramEmpty: string;
+    arAutoHint: string;
     styleTags: string;
     usageTags: string;
     colorTags: string;
@@ -568,6 +569,7 @@ const zhCN: Dictionary = {
     modelNegative: "反向提示",
     paramHeader: "动态参数 Schema",
     paramEmpty: "该模型未配置参数项，可以留空提交。",
+    arAutoHint: "（上传图片自动选择宽高）",
     styleTags: "风格标签",
     usageTags: "使用场景标签",
     colorTags: "色调标签",
@@ -1008,6 +1010,7 @@ const enUS: Dictionary = {
     modelNegative: "NEG",
     paramHeader: "PARAM SCHEMA / DYNAMIC",
     paramEmpty: "No parameters configured for this model. Submission can leave it empty.",
+    arAutoHint: "(auto-detected from uploaded image)",
     styleTags: "STYLE TAGS",
     usageTags: "USAGE TAGS",
     colorTags: "COLOR TAGS",
