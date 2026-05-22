@@ -1,8 +1,6 @@
 import type { ApiSuccess, PromptListItem, PromptListMeta } from "@deepprompt/types";
 import type { PromptRecord, PromptSearchQuery } from "./data";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3010";
-
 function promptListItemToRecord(prompt: PromptListItem): PromptRecord {
   const paramsRecord =
     "params_json" in prompt && (prompt as Record<string, unknown>).params_json &&
@@ -62,7 +60,7 @@ export async function fetchPromptsClient(
   if (query.offset) params.set("offset", String(query.offset));
 
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
-  const response = await fetch(`${apiBaseUrl}/v1/prompts${suffix}`);
+  const response = await fetch(`/api/prompts/list${suffix}`);
   if (!response.ok) {
     return { items: [], total: 0, hasMore: false };
   }
