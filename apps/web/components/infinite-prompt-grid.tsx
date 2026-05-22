@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { InfiniteScrollLoader } from "@/components/infinite-scroll-loader";
 import { PromptCard, type PromptCardLabels } from "@/components/prompt-card";
-import { SkeletonGrid } from "@/components/skeleton-grid";
 import type { PromptRecord, PromptSearchQuery } from "@/lib/data";
 import { fetchPromptsClient } from "@/lib/fetch-prompts-client";
 
@@ -13,9 +13,10 @@ type InfinitePromptGridProps = {
   query: PromptSearchQuery;
   pageSize?: number;
   labels: PromptCardLabels;
-  loadingLabel: string;
   noMoreLabel: string;
   keyword?: string;
+  /** @deprecated kept for backwards compat, no longer displayed */
+  loadingLabel?: string;
 };
 
 export function InfinitePromptGrid({
@@ -24,7 +25,6 @@ export function InfinitePromptGrid({
   query,
   pageSize = 24,
   labels,
-  loadingLabel,
   noMoreLabel,
   keyword
 }: InfinitePromptGridProps) {
@@ -81,15 +81,9 @@ export function InfinitePromptGrid({
           />
         ))}
       </div>
-      {loading && <SkeletonGrid count={3} />}
+      {loading && <InfiniteScrollLoader />}
       {hasMore ? (
-        <div
-          ref={sentinelRef}
-          className="mono-copy"
-          style={{ textAlign: "center", padding: "24px 0", opacity: 0.5 }}
-        >
-          {loading ? loadingLabel : ""}
-        </div>
+        <div ref={sentinelRef} style={{ height: 1 }} />
       ) : items.length > 0 ? (
         <div
           className="mono-copy"
