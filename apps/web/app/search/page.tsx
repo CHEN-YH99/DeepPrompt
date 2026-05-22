@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PromptCard } from "@/components/prompt-card";
+import { InfinitePromptGrid } from "@/components/infinite-prompt-grid";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { CollapsibleCheckboxGroup } from "@/components/collapsible-checkbox-group";
 import { ResetFiltersButton } from "@/components/reset-filters-button";
@@ -249,16 +249,24 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               {dict.search.emptyHint}
             </p>
           ) : (
-            <div className="prompt-grid" style={{ marginTop: 18 }}>
-              {snapshot.items.map((prompt) => (
-                <PromptCard
-                  key={prompt.id}
-                  prompt={prompt}
-                  keyword={keyword}
-                  labels={{ metrics: dict.common.metrics, actions: dict.common.actions }}
-                />
-              ))}
-            </div>
+            <InfinitePromptGrid
+              key={`${keyword}-${selectedModelIds.join()}-${selectedStyleTags.join()}-${selectedColorTags.join()}-${selectedUsageTags.join()}-${sort}`}
+              initialItems={snapshot.items}
+              total={snapshot.meta?.total ?? snapshot.items.length}
+              query={{
+                q: keyword,
+                modelIds: selectedModelIds,
+                styleTags: selectedStyleTags,
+                colorTags: selectedColorTags,
+                usageTags: selectedUsageTags,
+                sort
+              }}
+              pageSize={24}
+              labels={{ metrics: dict.common.metrics, actions: dict.common.actions }}
+              loadingLabel={dict.common.actions.loadingMore}
+              noMoreLabel={dict.common.actions.noMoreData}
+              keyword={keyword}
+            />
           )}
         </div>
       </section>

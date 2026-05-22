@@ -39,6 +39,9 @@ type PromptCardProps = {
 
 export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProps) {
   const coverUrl = isSafeImageUrl(prompt.cover) ? prompt.cover : "/placeholder.svg";
+  const thumbUrl = prompt.coverThumb && isSafeImageUrl(prompt.coverThumb)
+    ? prompt.coverThumb
+    : coverUrl;
   const router = useRouter();
   const detailHref = `/prompts/${prompt.id}`;
 
@@ -141,7 +144,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
           >
             <Image
               alt={prompt.title}
-              src={coverUrl}
+              src={thumbUrl}
               fill
               sizes="(max-width: 720px) 50vw, 320px"
               priority={priority}

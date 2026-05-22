@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS prompts (
   view_count INTEGER NOT NULL DEFAULT 0,
   search_vector TSVECTOR,
   cover_url TEXT,
+  cover_thumb_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -238,20 +239,23 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions (user_id, expires_at DESC);
 
--- cover_url 物化 trigger：prompt_images 变更时自动同步 prompts.cover_url
+-- cover_url 物化 trigger：prompt_images 变更时自动同步 prompts.cover_url / cover_thumb_url
 CREATE OR REPLACE FUNCTION sync_prompt_cover_url()
 RETURNS TRIGGER AS $$
 DECLARE
   target_prompt_id UUID;
+  first_image RECORD;
 BEGIN
   target_prompt_id := COALESCE(NEW.prompt_id, OLD.prompt_id);
+  SELECT url, thumb_url INTO first_image
+  FROM prompt_images
+  WHERE prompt_id = target_prompt_id
+  ORDER BY sort_order ASC
+  LIMIT 1;
+
   UPDATE prompts
-  SET cover_url = (
-    SELECT url FROM prompt_images
-    WHERE prompt_id = target_prompt_id
-    ORDER BY sort_order ASC
-    LIMIT 1
-  )
+  SET cover_url = first_image.url,
+      cover_thumb_url = first_image.thumb_url
   WHERE id = target_prompt_id;
   RETURN NULL;
 END;

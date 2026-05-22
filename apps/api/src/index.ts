@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import {
   S3Client,
-  PutObjectCommand
+  PutObjectCommand,
+  GetObjectCommand
 } from "@aws-sdk/client-s3";
+import sharp from "sharp";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import compression from "compression";
 import cookieParser from "cookie-parser";
@@ -1460,6 +1462,7 @@ function buildPromptListCacheKey(parts: {
   usageTags: string[];
   sort: SearchSort;
   limit: number;
+  offset: number;
 }): string {
   const normalized = JSON.stringify({
     q: parts.q,
@@ -1468,7 +1471,8 @@ function buildPromptListCacheKey(parts: {
     colorTags: [...parts.colorTags].sort(),
     usageTags: [...parts.usageTags].sort(),
     sort: parts.sort,
-    limit: parts.limit
+    limit: parts.limit,
+    offset: parts.offset
   });
   return `prompts:list:${crypto.createHash("md5").update(normalized).digest("hex")}`;
 }
@@ -1485,6 +1489,8 @@ app.get("/v1/prompts", async (req, res) => {
   const sort = parseSort(req.query.sort);
   const limitRaw = Number(req.query.limit);
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(60, Math.floor(limitRaw)) : 24;
+  const offsetRaw = Number(req.query.offset);
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? Math.min(500, Math.floor(offsetRaw)) : 0;
 
   const cacheKey = buildPromptListCacheKey({
     q,
@@ -1493,7 +1499,8 @@ app.get("/v1/prompts", async (req, res) => {
     colorTags,
     usageTags,
     sort,
-    limit
+    limit,
+    offset
   });
 
   if (redisClient && redisClient.isOpen) {
@@ -1545,10 +1552,20 @@ app.get("/v1/prompts", async (req, res) => {
   const orderSql = SORT_FIELDS[sort];
   params.push(limit);
   const limitParamIndex = params.length;
+  params.push(offset);
+  const offsetParamIndex = params.length;
   const facetParams = params.slice(0, limitParamIndex - 1);
+
+  const emptyFacets = {
+    model_ids: [] as SearchFacetBucket[],
+    style_tags: [] as SearchFacetBucket[],
+    color_tags: [] as SearchFacetBucket[],
+    usage_tags: [] as SearchFacetBucket[]
+  };
 
   // facets 合并为一条往返：4 个 UNNEST 子查询 UNION ALL 后用 ROW_NUMBER 截断
   // （model 取前 12，其余三个 facet 各取前 16）。
+  // offset > 0 时跳过 facet 计算（只在首页请求时算）。
   const [listResult, facetResult, totalRow] = await Promise.all([
     pgClient.query<PromptListRow>(
       `
@@ -1567,16 +1584,18 @@ app.get("/v1/prompts", async (req, res) => {
         p.copy_count,
         p.created_at,
         p.status,
-        p.cover_url
+        p.cover_url,
+        p.cover_thumb_url
       FROM prompts p
       JOIN users u ON u.id = p.author_id
       WHERE ${whereSql}
       ORDER BY ${orderSql}
-      LIMIT $${limitParamIndex}
+      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
       `,
       params
     ),
-    pgClient.query<{ facet: string; value: string; count: number }>(
+    offset === 0
+      ? pgClient.query<{ facet: string; value: string; count: number }>(
       `
       WITH facet_rows AS (
         SELECT 'model_ids'::TEXT AS facet, model::TEXT AS value, COUNT(*)::INT AS count
@@ -1610,19 +1629,15 @@ app.get("/v1/prompts", async (req, res) => {
       ORDER BY facet, rn
       `,
       facetParams
-    ),
+    )
+      : Promise.resolve({ rows: [] as { facet: string; value: string; count: number }[] }),
     pgClient.query<{ total: string }>(
       `SELECT COUNT(*)::TEXT AS total FROM prompts p WHERE ${whereSql}`,
       facetParams
     )
   ]);
 
-  const facets = {
-    model_ids: [] as SearchFacetBucket[],
-    style_tags: [] as SearchFacetBucket[],
-    color_tags: [] as SearchFacetBucket[],
-    usage_tags: [] as SearchFacetBucket[]
-  };
+  const facets = { ...emptyFacets };
   for (const row of facetResult.rows) {
     const bucket: SearchFacetBucket = { value: row.value, count: row.count };
     if (row.facet === "model_ids") facets.model_ids.push(bucket);
@@ -1636,6 +1651,8 @@ app.get("/v1/prompts", async (req, res) => {
     total: Number(totalRow.rows[0]?.total ?? items.length),
     took_ms: Date.now() - startedAt,
     sort,
+    offset,
+    limit,
     facets
   };
 
@@ -2663,16 +2680,54 @@ app.post("/v1/uploads/confirm/:key", requireAuth, async (req, res) => {
     fail(res, 400, "BAD_REQUEST", "Invalid upload key");
     return;
   }
+  if (!s3Client) {
+    fail(res, 501, "NOT_CONFIGURED", "Cloud storage is not configured");
+    return;
+  }
+
   const publicUrl = r2PublicUrl ? `${r2PublicUrl}/${key}` : null;
-  const thumbKey = key.replace("raw/", "thumb/");
-  const thumbUrl = r2PublicUrl ? `${r2PublicUrl}/${thumbKey}` : null;
-  success(res, {
-    key,
-    url: publicUrl,
-    thumbUrl,
-    status: "confirmed",
-    message: "Image processing (WebP + thumbnail) will run asynchronously in production."
-  });
+  let thumbUrl: string | null = null;
+  let width = 0;
+  let height = 0;
+  let fileSize = 0;
+
+  try {
+    const getRes = await s3Client.send(
+      new GetObjectCommand({ Bucket: r2BucketName, Key: key })
+    );
+    const chunks: Buffer[] = [];
+    const stream = getRes.Body as NodeJS.ReadableStream;
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk as Uint8Array));
+    }
+    const buffer = Buffer.concat(chunks);
+    fileSize = buffer.length;
+
+    const metadata = await sharp(buffer).metadata();
+    width = metadata.width ?? 0;
+    height = metadata.height ?? 0;
+
+    const thumbBuffer = await sharp(buffer)
+      .resize({ width: 480, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    const ext = path.extname(key);
+    const thumbKey = `thumb/${path.basename(key, ext)}.webp`;
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: r2BucketName,
+        Key: thumbKey,
+        Body: thumbBuffer,
+        ContentType: "image/webp"
+      })
+    );
+    thumbUrl = r2PublicUrl ? `${r2PublicUrl}/${thumbKey}` : null;
+  } catch (err) {
+    console.error("[api] confirm thumbnail generation failed:", err);
+  }
+
+  success(res, { key, url: publicUrl, thumbUrl, width, height, fileSize });
 });
 
 app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {

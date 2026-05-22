@@ -32,6 +32,7 @@ export type PromptRecord = {
   status: PromptStatus;
   createdAt: string;
   cover: string;
+  coverThumb: string | null;
   excerpt: string;
   promptText: string;
   negativePrompt?: string;
@@ -72,6 +73,8 @@ export type PromptListMetaSnapshot = {
   total: number;
   tookMs: number;
   sort: SearchSort;
+  offset: number;
+  limit: number;
   facets: {
     modelIds: SearchFacet[];
     styleTags: SearchFacet[];
@@ -93,6 +96,7 @@ export type PromptSearchQuery = {
   usageTags?: string[];
   sort?: SearchSort;
   limit?: number;
+  offset?: number;
 };
 
 export const SEARCH_SORT_VALUES: SearchSort[] = [
@@ -158,6 +162,7 @@ const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord" | "viewerLiked" 
     createdAt: "2026-05-03 21:40",
     cover:
       "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+    coverThumb: null,
     excerpt:
       "Rain-soaked tactical portrait with severe contrast, reflective polymer shell, cold city bleed and command-grade framing.",
     promptText:
@@ -191,6 +196,7 @@ const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord" | "viewerLiked" 
     createdAt: "2026-05-02 09:15",
     cover:
       "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    coverThumb: null,
     excerpt:
       "A machinery-first stage composition for product hero shots using hard light, hazard red separators and matte black steel.",
     promptText:
@@ -224,6 +230,7 @@ const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord" | "viewerLiked" 
     createdAt: "2026-05-01 18:08",
     cover:
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+    coverThumb: null,
     excerpt:
       "Editorial landscape built like a declassified blueprint, dense with fog, horizon grids and disciplined negative space.",
     promptText:
@@ -255,6 +262,7 @@ const PROMPT_TEMPLATES: Array<Omit<PromptRecord, "paramsRecord" | "viewerLiked" 
     createdAt: "2026-04-29 23:11",
     cover:
       "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
+    coverThumb: null,
     excerpt:
       "Dense telemetry room prompt tailored for command-center scenes, screen glow, warning stripes and layered metal textures.",
     promptText:
@@ -357,6 +365,7 @@ function promptListItemToPromptRecord(prompt: PromptListItem | PromptDetail): Pr
     cover:
       prompt.cover_url ??
       "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80",
+    coverThumb: prompt.cover_thumb_url ?? null,
     excerpt: prompt.excerpt,
     promptText: "prompt_text" in prompt ? prompt.prompt_text : prompt.excerpt,
     negativePrompt:
@@ -448,6 +457,9 @@ function buildPromptListSearchParams(query?: PromptSearchQuery) {
   if (query?.limit) {
     params.set("limit", String(query.limit));
   }
+  if (query?.offset) {
+    params.set("offset", String(query.offset));
+  }
   return params;
 }
 
@@ -518,6 +530,8 @@ export async function fetchPromptList(query?: PromptSearchQuery): Promise<Prompt
           total: json.meta.total,
           tookMs: json.meta.took_ms,
           sort: json.meta.sort,
+          offset: json.meta.offset,
+          limit: json.meta.limit,
           facets: {
             modelIds: json.meta.facets.model_ids,
             styleTags: json.meta.facets.style_tags,

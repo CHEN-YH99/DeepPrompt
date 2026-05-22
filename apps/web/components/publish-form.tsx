@@ -32,11 +32,16 @@ export function PublishForm({
     [models, modelId]
   );
 
-  const paramSchema = activeModel?.paramSchema ?? [];
+  const paramSchema = useMemo(
+    () => activeModel?.paramSchema ?? [],
+    [activeModel]
+  );
 
   const userTouchedAR = useRef(false);
   const paramSchemaRef = useRef(paramSchema);
-  paramSchemaRef.current = paramSchema;
+  useEffect(() => {
+    paramSchemaRef.current = paramSchema;
+  }, [paramSchema]);
 
   useEffect(() => {
     function handleAspectDetected(e: Event) {

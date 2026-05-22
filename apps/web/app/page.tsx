@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 
-import { PromptCard } from "@/components/prompt-card";
+import { InfinitePromptGrid } from "@/components/infinite-prompt-grid";
 import { SectionHeader } from "@/components/section-header";
-import { featuredPrompt, fetchCurrentUser, fetchModels, fetchPromptRecords } from "@/lib/data";
+import { featuredPrompt, fetchCurrentUser, fetchModels, fetchPromptList } from "@/lib/data";
 import { getDictionary } from "@/lib/i18n";
 
 export const revalidate = 60;
@@ -11,11 +11,13 @@ export default async function HomePage() {
   const dict = getDictionary();
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
-  const [modelRecords, promptRecords, currentUser] = await Promise.all([
+  const [modelRecords, snapshot, currentUser] = await Promise.all([
     fetchModels(),
-    fetchPromptRecords({ sort: "latest" }),
+    fetchPromptList({ sort: "latest", limit: 24 }),
     fetchCurrentUser(accessToken).catch(() => null)
   ]);
+  const promptRecords = snapshot.items;
+  const total = snapshot.meta?.total ?? promptRecords.length;
   const featured = promptRecords[0] ?? featuredPrompt;
 
   return (
@@ -132,11 +134,15 @@ export default async function HomePage() {
             title={dict.home.feedTitle}
             copy={dict.home.feedCopy}
           />
-          <div className="prompt-grid" style={{ marginTop: 18 }}>
-            {promptRecords.map((prompt, index) => (
-              <PromptCard key={prompt.id} prompt={prompt} priority={index < 2} labels={{ metrics: dict.common.metrics, actions: dict.common.actions }} />
-            ))}
-          </div>
+          <InfinitePromptGrid
+            initialItems={promptRecords}
+            total={total}
+            query={{ sort: "latest" }}
+            pageSize={24}
+            labels={{ metrics: dict.common.metrics, actions: dict.common.actions }}
+            loadingLabel={dict.common.actions.loadingMore}
+            noMoreLabel={dict.common.actions.noMoreData}
+          />
         </div>
       </section>
     </main>

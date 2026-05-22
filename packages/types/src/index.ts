@@ -111,6 +111,7 @@ export type PromptListQuery = {
   usage_tags?: string[];
   sort?: SearchSort;
   limit?: number;
+  offset?: number;
 };
 
 export type SearchFacetBucket = {
@@ -122,6 +123,8 @@ export type PromptListMeta = {
   total: number;
   took_ms: number;
   sort: SearchSort;
+  offset: number;
+  limit: number;
   facets: {
     model_ids: SearchFacetBucket[];
     style_tags: SearchFacetBucket[];
@@ -157,6 +160,7 @@ export type PromptListItem = {
   copy_count: number;
   created_at: string;
   cover_url: string | null;
+  cover_thumb_url: string | null;
   status: PromptStatus;
 };
 

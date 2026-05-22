@@ -19,6 +19,8 @@ type CommonDict = {
     saveDraft: string;
     enterSystem: string;
     closeLightbox: string;
+    loadingMore: string;
+    noMoreData: string;
   };
   metrics: {
     like: string;
@@ -399,7 +401,9 @@ const zhCN: Dictionary = {
       publishLive: "立即发布",
       saveDraft: "保存为草稿",
       enterSystem: "登录系统",
-      closeLightbox: "关闭预览"
+      closeLightbox: "关闭预览",
+      loadingMore: "加载中…",
+      noMoreData: "没有更多了"
     },
     metrics: {
       like: "点赞",
@@ -838,7 +842,9 @@ const enUS: Dictionary = {
       publishLive: "PUBLISH LIVE",
       saveDraft: "SAVE DRAFT",
       enterSystem: "ENTER SYSTEM",
-      closeLightbox: "CLOSE PREVIEW"
+      closeLightbox: "CLOSE PREVIEW",
+      loadingMore: "LOADING…",
+      noMoreData: "NO MORE DATA"
     },
     metrics: {
       like: "LIKE",

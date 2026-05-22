@@ -117,18 +117,38 @@ async function persistUploadedFile(file: File, accessToken: string) {
     throw new Error(`R2 PUT failed: ${putRes.status}`);
   }
 
-  await fetch(`${apiBaseUrl}/v1/uploads/confirm/${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${accessToken}` },
-    cache: "no-store"
-  }).catch(() => {});
+  let thumbUrl: string | null = publicUrl;
+  let width = 1200;
+  let height = 800;
+  let fileSize = file.size;
+
+  try {
+    const confirmRes = await fetch(`${apiBaseUrl}/v1/uploads/confirm/${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}` },
+      cache: "no-store"
+    });
+    if (confirmRes.ok) {
+      const confirmJson = (await confirmRes.json()) as {
+        data?: { thumbUrl?: string | null; width?: number; height?: number; fileSize?: number };
+      };
+      if (confirmJson.data) {
+        thumbUrl = confirmJson.data.thumbUrl ?? publicUrl;
+        width = confirmJson.data.width || width;
+        height = confirmJson.data.height || height;
+        fileSize = confirmJson.data.fileSize || fileSize;
+      }
+    }
+  } catch {
+    // confirm 失败不阻塞上传
+  }
 
   return {
     url: publicUrl,
-    thumb_url: publicUrl,
-    width: 1200,
-    height: 800,
-    file_size: file.size
+    thumb_url: thumbUrl,
+    width,
+    height,
+    file_size: fileSize
   };
 }
 
