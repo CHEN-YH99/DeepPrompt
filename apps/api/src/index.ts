@@ -883,6 +883,7 @@ async function getPromptDetail(promptId: string) {
       p.created_at,
       p.status,
       p.cover_url,
+      p.cover_thumb_url,
       p.prompt_text,
       p.negative_prompt,
       p.params_json,
@@ -1992,6 +1993,7 @@ app.post("/v1/prompts", requireAuth, async (req, res) => {
     }
 
     await txClient.query("COMMIT");
+    void invalidatePromptListCache();
     const created = await getPromptDetail(promptId);
     success(res, created, { status });
   } catch (error) {
