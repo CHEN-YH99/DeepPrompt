@@ -883,7 +883,6 @@ async function getPromptDetail(promptId: string) {
       p.created_at,
       p.status,
       p.cover_url,
-      p.cover_thumb_url,
       p.prompt_text,
       p.negative_prompt,
       p.params_json,
@@ -1586,7 +1585,7 @@ app.get("/v1/prompts", async (req, res) => {
         p.created_at,
         p.status,
         p.cover_url,
-        p.cover_thumb_url
+        (SELECT pi.thumb_url FROM prompt_images pi WHERE pi.prompt_id = p.id ORDER BY pi.sort_order ASC LIMIT 1) AS cover_thumb_url
       FROM prompts p
       JOIN users u ON u.id = p.author_id
       WHERE ${whereSql}
