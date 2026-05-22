@@ -33,9 +33,12 @@ export function InfinitePromptGrid({
   const [hasMore, setHasMore] = useState(initialItems.length < total);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(initialItems.length);
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(initialItems.length < total);
 
   const loadNext = useCallback(async () => {
-    if (loading || !hasMore) return;
+    if (loadingRef.current || !hasMoreRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const result = await fetchPromptsClient(
@@ -44,13 +47,15 @@ export function InfinitePromptGrid({
       );
       setItems((prev) => [...prev, ...result.items]);
       offsetRef.current += result.items.length;
+      hasMoreRef.current = result.hasMore;
       setHasMore(result.hasMore);
     } catch {
       // 网络错误静默，用户可再次滚动触发
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [loading, hasMore, query, pageSize]);
+  }, [query, pageSize]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

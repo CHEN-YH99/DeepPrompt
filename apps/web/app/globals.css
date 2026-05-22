@@ -674,7 +674,7 @@ html[data-scrolling="true"] *::-webkit-scrollbar-thumb:horizontal {
   position: absolute;
   inset: 0;
   width: 40%;
-  background: linear-gradient(90deg, transparent, var(--ok), transparent);
+  background: linear-gradient(90deg, transparent, var(--danger), transparent);
   animation: loader-scan 1.4s ease-in-out infinite;
 }
 
