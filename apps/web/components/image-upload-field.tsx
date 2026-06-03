@@ -41,7 +41,8 @@ export function ImageUploadField({
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const newPreviews: FilePreview[] = [];
-    for (const file of Array.from(files)) {
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
       if (!file.type.startsWith("image/")) continue;
       newPreviews.push({
         id: `img-${++uid}`,
@@ -80,8 +81,6 @@ export function ImageUploadField({
       if (e.target.files && e.target.files.length > 0) {
         addFiles(e.target.files);
       }
-      // 清空原生 input 的 value，允许重复选同一文件
-      e.target.value = "";
     },
     [addFiles]
   );
@@ -108,15 +107,80 @@ export function ImageUploadField({
   );
 
   // 同步 previews 到隐藏 input，让 form submit 能拿到文件。
+  // 移动端兼容：使用 DataTransfer 或降级方案
   const syncInputRef = useRef<HTMLInputElement>(null);
+  const filesRef = useRef<File[]>([]);
+
   useEffect(() => {
+    filesRef.current = previews.map((p) => p.file);
+
     if (!syncInputRef.current) return;
-    const dt = new DataTransfer();
-    for (const p of previews) {
-      dt.items.add(p.file);
+
+    // 尝试使用 DataTransfer API（桌面浏览器）
+    if (typeof DataTransfer !== "undefined") {
+      try {
+        const dt = new DataTransfer();
+        for (const p of previews) {
+          dt.items.add(p.file);
+        }
+        syncInputRef.current.files = dt.files;
+        return;
+      } catch (error) {
+        console.warn("DataTransfer failed, using fallback", error);
+      }
     }
-    syncInputRef.current.files = dt.files;
+
+    // 降级方案：在表单提交时手动处理（见下面的表单事件监听）
   }, [previews]);
+
+  // 移动端降级方案：拦截表单提交，手动添加文件到 FormData
+  useEffect(() => {
+    const input = syncInputRef.current;
+    if (!input) return;
+
+    const form = input.closest("form");
+    if (!form) return;
+
+    const handleFormSubmit = (e: SubmitEvent) => {
+      // 如果 DataTransfer 成功，直接跳过
+      if (input.files && input.files.length > 0) return;
+
+      // 如果没有文件，也跳过
+      if (filesRef.current.length === 0) return;
+
+      // 拦截表单提交，手动构建 FormData
+      e.preventDefault();
+
+      const formData = new FormData(form);
+      // 移除可能的空文件字段
+      formData.delete(name);
+
+      // 手动添加文件
+      for (const file of filesRef.current) {
+        formData.append(name, file);
+      }
+
+      // 重新提交
+      fetch(form.action || window.location.href, {
+        method: form.method || "POST",
+        body: formData
+      }).then((response) => {
+        if (response.redirected) {
+          window.location.href = response.url;
+        } else {
+          window.location.reload();
+        }
+      }).catch((error) => {
+        console.error("Form submission failed", error);
+        alert("上传失败，请重试");
+      });
+    };
+
+    form.addEventListener("submit", handleFormSubmit);
+    return () => {
+      form.removeEventListener("submit", handleFormSubmit);
+    };
+  }, [name, previews]);
 
   return (
     <div className="field">
@@ -146,12 +210,15 @@ export function ImageUploadField({
         type="file"
       />
       {/* 真正提交给 form 的 input，files 由 DataTransfer 同步 */}
+      {/* 移动端 DataTransfer 兼容性问题：如果失败则通过表单拦截手动处理 */}
       <input
         ref={syncInputRef}
         name={name}
         multiple={multiple}
         style={{ display: "none" }}
         type="file"
+        tabIndex={-1}
+        aria-hidden="true"
       />
       {previews.length > 0 ? (
         <div className="image-preview-grid">
