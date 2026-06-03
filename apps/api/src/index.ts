@@ -834,10 +834,12 @@ async function getModelLabel(modelIds: string[]): Promise<string> {
 }
 
 async function toPromptListItem(row: PromptListRow): Promise<PromptListItem> {
+  const images = await getPromptImages(row.id);
   return {
     ...row,
     model_label: await getModelLabel(row.model_ids),
-    created_at: row.created_at.toISOString()
+    created_at: row.created_at.toISOString(),
+    images
   };
 }
 

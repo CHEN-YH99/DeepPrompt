@@ -162,6 +162,7 @@ export type PromptListItem = {
   cover_url: string | null;
   cover_thumb_url: string | null;
   status: PromptStatus;
+  images: PromptImageRecord[];
 };
 
 export type PromptDetail = PromptListItem & {
