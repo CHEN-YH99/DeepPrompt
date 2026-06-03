@@ -149,3 +149,109 @@
 .gallery-thumb[data-active="true"] {
   border-color: var(--danger);
 }
+
+/* 多图网格布局 */
+.card-image-grid {
+  display: grid;
+  gap: 2px;
+  background: var(--line);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+}
+
+/* 2张图：左右平铺 */
+.card-image-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 3张图：左1右2（左边大图，右边2张竖着排） */
+.card-image-grid-3 {
+  grid-template-columns: 2fr 1fr;
+}
+
+.card-image-grid-3 .card-grid-item:first-child {
+  grid-row: span 2;
+}
+
+/* 4张图：2x2 */
+.card-image-grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* 5张图：上2下3 */
+.card-image-grid-5 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
+}
+
+.card-image-grid-5 .card-grid-item:nth-child(1),
+.card-image-grid-5 .card-grid-item:nth-child(2) {
+  grid-column: span 1.5;
+}
+
+/* 6张图：2x3 */
+.card-image-grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* 7张图：上1下6（第一张占据整行，下面6张平铺） */
+.card-image-grid-7 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.card-image-grid-7 .card-grid-item:first-child {
+  grid-column: span 3;
+}
+
+/* 8张图：上2下6 */
+.card-image-grid-8 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.card-image-grid-8 .card-grid-item:nth-child(1),
+.card-image-grid-8 .card-grid-item:nth-child(2) {
+  grid-column: span 1.5;
+}
+
+/* 9张图：3x3 */
+.card-image-grid-9 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+
+/* 网格内的图片项 */
+.card-grid-item {
+  position: relative;
+  overflow: hidden;
+  background: #070707;
+  appearance: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: zoom-in;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  transition: opacity 0.15s;
+}
+
+.card-grid-item:hover {
+  opacity: 0.85;
+}
+
+.card-grid-item::after {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.03) 2px,
+    rgba(255, 255, 255, 0.03) 3px
+  );
+  content: "";
+  pointer-events: none;
+}

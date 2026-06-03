@@ -118,7 +118,6 @@ export default async function PromptDetailPage({ params, searchParams }: PromptD
     <main className="shell">
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c")
         }}

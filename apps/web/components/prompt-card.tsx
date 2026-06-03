@@ -47,7 +47,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
 
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).closest(".action-row, .prompt-thumb")) return;
+      if ((e.target as HTMLElement).closest(".action-row, .prompt-thumb, .card-image-grid")) return;
       router.push(detailHref);
     },
     [router, detailHref]
@@ -57,6 +57,11 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
     prompt.excerpt.length > MAX_EXCERPT
       ? prompt.excerpt.slice(0, MAX_EXCERPT) + "…"
       : prompt.excerpt;
+
+  // 获取安全的图片列表
+  const safeImages = prompt.images
+    .filter((img) => isSafeImageUrl(img.url))
+    .slice(0, 9); // 最多显示9张，类似朋友圈
 
   const [thumbOffset, setThumbOffset] = useState({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
@@ -117,54 +122,83 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
   }, []);
 
   const handleThumbClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+    (imageUrl: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       e.preventDefault();
       triggerRef.current = e.currentTarget;
-      setLightboxSrc(coverUrl);
+      setLightboxSrc(imageUrl);
     },
-    [coverUrl]
+    [setLightboxSrc]
   );
 
   const closeLabel = labels.actions.closeLightbox ?? "关闭预览";
   const lightboxTitleId = `lightbox-title-${prompt.id}`;
 
+  // 根据图片数量决定布局
+  const imageCount = safeImages.length;
+  const shouldUseGrid = imageCount > 1;
+
   return (
     <>
       <div className="prompt-card-link" onClick={handleCardClick} role="article" style={{ cursor: "pointer" }}>
         <article className="prompt-card">
-          <button
-            type="button"
-            className="prompt-thumb"
-            aria-label={closeLabel === "关闭预览" ? `查看 ${prompt.title} 大图` : `View ${prompt.title} preview`}
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseMove={handleThumbMove}
-            onMouseLeave={handleThumbLeave}
-            onClick={handleThumbClick}
-          >
-            <Image
-              alt={prompt.title}
-              src={thumbUrl}
-              fill
-              sizes="(max-width: 720px) 50vw, 320px"
-              priority={priority}
-              style={{
-                objectFit: "cover",
-                transform: isHovering
-                  ? `translate(${thumbOffset.x}px, ${thumbOffset.y}px) scale(1.05)`
-                  : "translate(0, 0) scale(1)",
-                transition: isHovering ? "transform 0.15s ease-out" : "transform 0.4s ease-out"
-              }}
-            />
-            <div
-              className="thumb-cursor"
-              style={{
-                left: cursorPos.x,
-                top: cursorPos.y,
-                opacity: isHovering ? 1 : 0
-              }}
-            />
-          </button>
+          {shouldUseGrid ? (
+            // 多图网格布局
+            <div className={`card-image-grid card-image-grid-${Math.min(imageCount, 9)}`}>
+              {safeImages.map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className="card-grid-item"
+                  aria-label={`查看 ${prompt.title} 第 ${index + 1} 张图片`}
+                  onClick={handleThumbClick(image.url)}
+                >
+                  <Image
+                    alt={`${prompt.title} ${index + 1}`}
+                    src={image.thumbUrl || image.url}
+                    fill
+                    sizes="(max-width: 720px) 25vw, 150px"
+                    priority={priority && index < 4}
+                    style={{ objectFit: "cover" }}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : (
+            // 单图布局（保留原有交互效果）
+            <button
+              type="button"
+              className="prompt-thumb"
+              aria-label={closeLabel === "关闭预览" ? `查看 ${prompt.title} 大图` : `View ${prompt.title} preview`}
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseMove={handleThumbMove}
+              onMouseLeave={handleThumbLeave}
+              onClick={handleThumbClick(coverUrl)}
+            >
+              <Image
+                alt={prompt.title}
+                src={thumbUrl}
+                fill
+                sizes="(max-width: 720px) 50vw, 320px"
+                priority={priority}
+                style={{
+                  objectFit: "cover",
+                  transform: isHovering
+                    ? `translate(${thumbOffset.x}px, ${thumbOffset.y}px) scale(1.05)`
+                    : "translate(0, 0) scale(1)",
+                  transition: isHovering ? "transform 0.15s ease-out" : "transform 0.4s ease-out"
+                }}
+              />
+              <div
+                className="thumb-cursor"
+                style={{
+                  left: cursorPos.x,
+                  top: cursorPos.y,
+                  opacity: isHovering ? 1 : 0
+                }}
+              />
+            </button>
+          )}
           <div className="card-kicker">[{prompt.modelLabel}] / ID {prompt.id}</div>
           <div className="card-kicker card-author">BY {prompt.author || "ANONYMOUS"}</div>
           <h3 className="prompt-title">
