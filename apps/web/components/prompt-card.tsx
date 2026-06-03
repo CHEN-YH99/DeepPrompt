@@ -67,6 +67,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Lightbox 无障碍：触发元素引用，关闭后焦点回去；关闭按钮引用，打开后焦点过去。
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +90,16 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
         setLightboxSrc(null);
         return;
       }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setLightboxIndex((prev) => (prev > 0 ? prev - 1 : safeImages.length - 1));
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setLightboxIndex((prev) => (prev < safeImages.length - 1 ? prev + 1 : 0));
+        return;
+      }
       if (event.key === "Tab") {
         // 焦点陷阱：dialog 里只有一个关闭按钮，Tab/Shift+Tab 都钉死在它身上。
         event.preventDefault();
@@ -103,7 +114,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
       const restoreTo = triggerRef.current ?? previouslyFocused;
       restoreTo?.focus?.();
     };
-  }, [lightboxSrc]);
+  }, [lightboxSrc, safeImages.length]);
 
   const handleThumbMove = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -122,11 +133,12 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
   }, []);
 
   const handleThumbClick = useCallback(
-    (imageUrl: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
+    (imageUrl: string, imageIndex: number) => (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       e.preventDefault();
       triggerRef.current = e.currentTarget;
       setLightboxSrc(imageUrl);
+      setLightboxIndex(imageIndex);
     },
     [setLightboxSrc]
   );
@@ -151,7 +163,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
                   type="button"
                   className="card-grid-item"
                   aria-label={`查看 ${prompt.title} 第 ${index + 1} 张图片`}
-                  onClick={handleThumbClick(image.url)}
+                  onClick={handleThumbClick(image.url, index)}
                 >
                   <Image
                     alt={`${prompt.title} ${index + 1}`}
@@ -173,7 +185,7 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
               onMouseEnter={() => setIsHovering(true)}
               onMouseMove={handleThumbMove}
               onMouseLeave={handleThumbLeave}
-              onClick={handleThumbClick(coverUrl)}
+              onClick={handleThumbClick(coverUrl, 0)}
             >
               <Image
                 alt={prompt.title}
@@ -264,13 +276,50 @@ export function PromptCard({ prompt, priority, labels, keyword }: PromptCardProp
           >
             ×
           </button>
+
+          {safeImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="lightbox-nav lightbox-nav-prev"
+                aria-label="上一张"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev > 0 ? prev - 1 : safeImages.length - 1));
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                className="lightbox-nav lightbox-nav-next"
+                aria-label="下一张"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev < safeImages.length - 1 ? prev + 1 : 0));
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+
+              <div className="lightbox-counter">
+                {lightboxIndex + 1} / {safeImages.length}
+              </div>
+            </>
+          )}
+
           <div
             className="lightbox-image"
             onClick={(e) => e.stopPropagation()}
           >
             <Image
-              alt={prompt.title}
-              src={lightboxSrc}
+              alt={`${prompt.title} ${lightboxIndex + 1}`}
+              src={safeImages[lightboxIndex]?.url || lightboxSrc}
               fill
               sizes="90vw"
               quality={90}
