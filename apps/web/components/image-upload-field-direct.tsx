@@ -81,6 +81,8 @@ async function uploadToR2(file: File): Promise<UploadedImage> {
   });
 
   if (!presignRes.ok) {
+    const errorText = await presignRes.text();
+    console.error("[uploadToR2] presign failed", presignRes.status, errorText);
     throw new Error(`获取上传签名失败: ${presignRes.status}`);
   }
 
@@ -88,15 +90,19 @@ async function uploadToR2(file: File): Promise<UploadedImage> {
     data?: { uploadUrl?: string; key?: string; publicUrl?: string };
   };
 
+  console.log("[uploadToR2] presign response", presignJson);
+
   const uploadUrl = presignJson.data?.uploadUrl;
   const key = presignJson.data?.key;
   const publicUrl = presignJson.data?.publicUrl;
 
   if (!uploadUrl || !key || !publicUrl) {
+    console.error("[uploadToR2] missing fields", presignJson);
     throw new Error("预签名响应缺少必要字段");
   }
 
   // 2. 直接上传到 R2
+  console.log("[uploadToR2] uploading to R2", { key, size: file.size });
   const putRes = await fetch(uploadUrl, {
     method: "PUT",
     headers: { "content-type": file.type || "application/octet-stream" },
@@ -104,8 +110,12 @@ async function uploadToR2(file: File): Promise<UploadedImage> {
   });
 
   if (!putRes.ok) {
+    const errorText = await putRes.text();
+    console.error("[uploadToR2] R2 PUT failed", putRes.status, errorText);
     throw new Error(`R2 上传失败: ${putRes.status}`);
   }
+
+  console.log("[uploadToR2] R2 upload success");
 
   // 3. 确认上传并获取缩略图
   let thumbUrl: string | null = publicUrl;
@@ -123,15 +133,18 @@ async function uploadToR2(file: File): Promise<UploadedImage> {
       const confirmJson = await confirmRes.json() as {
         data?: { thumbUrl?: string | null; width?: number; height?: number; fileSize?: number };
       };
+      console.log("[uploadToR2] confirm response", confirmJson);
       if (confirmJson.data) {
         thumbUrl = confirmJson.data.thumbUrl ?? publicUrl;
         width = confirmJson.data.width || width;
         height = confirmJson.data.height || height;
         fileSize = confirmJson.data.fileSize || fileSize;
       }
+    } else {
+      console.warn("[uploadToR2] confirm failed, using defaults", confirmRes.status);
     }
-  } catch {
-    // confirm 失败不阻塞
+  } catch (error) {
+    console.warn("[uploadToR2] confirm error (non-fatal)", error);
   }
 
   return {

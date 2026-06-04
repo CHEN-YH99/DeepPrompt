@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { cookies } from "next/headers";
 
-import { ImageUploadFieldDirect } from "@/components/image-upload-field-direct";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { PublishForm } from "@/components/publish-form";
 import { PublishFormGuard } from "@/components/publish-form-guard";
 import { SectionHeader } from "@/components/section-header";
@@ -251,7 +251,7 @@ export default async function PublishPage({ searchParams }: PublishPageProps) {
                     maxHintLabel={dict.publish.tagMaxHint}
                     initialSelected={draft.color_tags ?? []}
                   />
-                  <ImageUploadFieldDirect
+                  <ImageUploadField
                     name="images"
                     label={dict.publish.imageFiles}
                     hint={dict.publish.imageHint}

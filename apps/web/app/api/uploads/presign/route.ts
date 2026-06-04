@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
 
   if (!accessToken) {
+    console.error("[presign] no access token");
     return NextResponse.json(
       { error: { code: "UNAUTHORIZED", message: "登录后才能上传" } },
       { status: 401 }
@@ -14,6 +15,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    console.log("[presign] request body", body);
 
     const response = await fetch(`${apiBaseUrl}/v1/uploads/presign`, {
       method: "POST",
@@ -26,6 +28,7 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+    console.log("[presign] backend response", response.status, data);
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status });
