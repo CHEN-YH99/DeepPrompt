@@ -66,7 +66,7 @@ async function compressImageIfNeeded(file: File): Promise<File> {
   }
 }
 
-async function uploadToR2(file: File, accessToken: string): Promise<UploadedImage> {
+async function uploadToR2(file: File): Promise<UploadedImage> {
   // 1. 获取预签名 URL
   const presignRes = await fetch("/api/uploads/presign", {
     method: "POST",
@@ -163,7 +163,7 @@ export function ImageUploadFieldDirect({
     );
 
     try {
-      const uploadedData = await uploadToR2(preview.file, "");
+      const uploadedData = await uploadToR2(preview.file);
       setPreviews((prev) =>
         prev.map((p) =>
           p.id === preview.id ? { ...p, uploadStatus: "uploaded", uploadedData } : p
