@@ -116,6 +116,13 @@ export function ImageUploadField({
           return prev;
         }
 
+        // 最多 6 张图片
+        const willHaveTotal = prev.length + newPreviews.length;
+        if (willHaveTotal > 6) {
+          alert(`最多只能上传 6 张图片，当前已选 ${prev.length} 张`);
+          return prev;
+        }
+
         const last = newPreviews[newPreviews.length - 1]!;
         const img = new Image();
         img.onload = () => {
@@ -182,6 +189,8 @@ export function ImageUploadField({
 
     if (!syncInputRef.current) return;
 
+    console.log("[ImageUploadField] syncing files, count:", previews.length);
+
     // 尝试使用 DataTransfer API（桌面浏览器）
     if (typeof DataTransfer !== "undefined") {
       try {
@@ -190,13 +199,15 @@ export function ImageUploadField({
           dt.items.add(p.file);
         }
         syncInputRef.current.files = dt.files;
+        console.log("[ImageUploadField] DataTransfer success, files:", dt.files.length);
         return;
       } catch (error) {
-        console.warn("DataTransfer failed, using fallback", error);
+        console.warn("[ImageUploadField] DataTransfer failed, using fallback", error);
       }
     }
 
     // 降级方案：在表单提交时手动处理（见下面的表单事件监听）
+    console.log("[ImageUploadField] using fallback mode");
   }, [previews]);
 
   // 移动端降级方案：拦截表单提交，手动添加文件到 FormData
@@ -209,12 +220,19 @@ export function ImageUploadField({
 
     const handleFormSubmit = (e: SubmitEvent) => {
       // 如果 DataTransfer 成功，直接跳过
-      if (input.files && input.files.length > 0) return;
+      if (input.files && input.files.length > 0) {
+        console.log("[ImageUploadField] form submit: DataTransfer mode, files:", input.files.length);
+        return;
+      }
 
       // 如果没有文件，也跳过
-      if (filesRef.current.length === 0) return;
+      if (filesRef.current.length === 0) {
+        console.log("[ImageUploadField] form submit: no files to upload");
+        return;
+      }
 
       // 拦截表单提交，手动构建 FormData
+      console.log("[ImageUploadField] form submit: fallback mode, manual FormData, files:", filesRef.current.length);
       e.preventDefault();
 
       const formData = new FormData(form);
@@ -225,6 +243,8 @@ export function ImageUploadField({
       for (const file of filesRef.current) {
         formData.append(name, file);
       }
+
+      console.log("[ImageUploadField] submitting with", filesRef.current.length, "files");
 
       // 重新提交
       fetch(form.action || window.location.href, {
