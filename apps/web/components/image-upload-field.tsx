@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import imageCompression from "browser-image-compression";
 
 type FilePreview = {
   id: string;
@@ -24,7 +25,35 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Vercel 免费版 payload 限制 4.5MB，扣除缓冲后图片可用 4MB
+// 6 张图均分：4MB ÷ 6 ≈ 650KB/张
+const MAX_FILE_SIZE = 650 * 1024; // 650KB
+const MAX_TOTAL_SIZE = 4 * 1024 * 1024; // 4MB
+const COMPRESS_TARGET_SIZE = 600 * 1024; // 压缩目标 600KB（低于限制 50KB 作为安全边际）
+
 let uid = 0;
+
+async function compressImageIfNeeded(file: File): Promise<File> {
+  // 如果文件已经小于目标大小，直接返回
+  if (file.size <= COMPRESS_TARGET_SIZE) {
+    return file;
+  }
+
+  try {
+    const options = {
+      maxSizeMB: COMPRESS_TARGET_SIZE / (1024 * 1024), // 转换为 MB
+      maxWidthOrHeight: 2048, // 最大宽高限制
+      useWebWorker: true,
+      fileType: file.type as "image/jpeg" | "image/png" | "image/webp"
+    };
+
+    const compressedFile = await imageCompression(file, options);
+    return compressedFile;
+  } catch (error) {
+    console.warn("图片压缩失败，使用原文件", error);
+    return file;
+  }
+}
 
 export function ImageUploadField({
   name,
@@ -39,11 +68,31 @@ export function ImageUploadField({
   const dropRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const addFiles = useCallback((files: FileList | File[]) => {
+  const addFiles = useCallback(async (files: FileList | File[]) => {
     const newPreviews: FilePreview[] = [];
     const fileArray = Array.from(files);
-    for (const file of fileArray) {
-      if (!file.type.startsWith("image/")) continue;
+    const errors: string[] = [];
+
+    for (const originalFile of fileArray) {
+      if (!originalFile.type.startsWith("image/")) continue;
+
+      // 自动压缩超大图片
+      let file = originalFile;
+      if (originalFile.size > MAX_FILE_SIZE) {
+        try {
+          file = await compressImageIfNeeded(originalFile);
+          // 如果压缩后还是超过限制，提示用户
+          if (file.size > MAX_FILE_SIZE) {
+            errors.push(`${originalFile.name} 即使压缩后仍超过 ${formatFileSize(MAX_FILE_SIZE)} 限制`);
+            continue;
+          }
+        } catch (error) {
+          console.error("压缩失败", error);
+          errors.push(`${originalFile.name} 压缩失败`);
+          continue;
+        }
+      }
+
       newPreviews.push({
         id: `img-${++uid}`,
         file,
@@ -51,21 +100,38 @@ export function ImageUploadField({
         size: formatFileSize(file.size)
       });
     }
-    if (newPreviews.length > 0) {
-      const last = newPreviews[newPreviews.length - 1]!;
-      const img = new Image();
-      img.onload = () => {
-        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-          document.dispatchEvent(
-            new CustomEvent("image-aspect-detected", {
-              detail: { width: img.naturalWidth, height: img.naturalHeight }
-            })
-          );
-        }
-      };
-      img.src = last.url;
+
+    if (errors.length > 0) {
+      alert(`以下文件处理失败：\n${errors.join("\n")}`);
     }
-    setPreviews((prev) => [...prev, ...newPreviews]);
+
+    if (newPreviews.length > 0) {
+      // 总大小校验
+      setPreviews((prev) => {
+        const currentTotal = prev.reduce((sum, p) => sum + p.file.size, 0);
+        const newTotal = newPreviews.reduce((sum, p) => sum + p.file.size, 0);
+
+        if (currentTotal + newTotal > MAX_TOTAL_SIZE) {
+          alert(`图片总大小不能超过 ${formatFileSize(MAX_TOTAL_SIZE)}，当前已选 ${formatFileSize(currentTotal)}`);
+          return prev;
+        }
+
+        const last = newPreviews[newPreviews.length - 1]!;
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            document.dispatchEvent(
+              new CustomEvent("image-aspect-detected", {
+                detail: { width: img.naturalWidth, height: img.naturalHeight }
+              })
+            );
+          }
+        };
+        img.src = last.url;
+
+        return [...prev, ...newPreviews];
+      });
+    }
   }, []);
 
   const removeFile = useCallback((id: string) => {
@@ -77,9 +143,9 @@ export function ImageUploadField({
   }, []);
 
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-        addFiles(e.target.files);
+        await addFiles(e.target.files);
       }
     },
     [addFiles]
@@ -96,11 +162,11 @@ export function ImageUploadField({
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
       if (e.dataTransfer.files.length > 0) {
-        addFiles(e.dataTransfer.files);
+        await addFiles(e.dataTransfer.files);
       }
     },
     [addFiles]
@@ -249,6 +315,9 @@ export function ImageUploadField({
       <div className="field-hint">
         {hint}
         {extraHint ?? ""}
+        <span style={{ display: "block", marginTop: 4, color: "var(--accent, #60a5fa)", fontSize: 12 }}>
+          单张限制 {formatFileSize(MAX_FILE_SIZE)}，总大小限制 {formatFileSize(MAX_TOTAL_SIZE)}（超大图片会自动压缩）
+        </span>
       </div>
     </div>
   );

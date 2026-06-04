@@ -170,10 +170,30 @@ export async function POST(request: NextRequest) {
   const promptText = String(formData.get("prompt_text") ?? "").trim();
   const modelId = String(formData.get("model_id") ?? "").trim();
   const imageUrl = String(formData.get("image_url") ?? "").trim();
-  const uploadedFiles = formData
-    .getAll("images")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0)
-    .slice(0, 6);
+
+  // 支持两种模式：
+  // 1. 旧模式：上传 File 对象（兼容旧代码）
+  // 2. 新模式：客户端直传后传 JSON 字符串
+  const imagesFieldValue = formData.get("images");
+  let uploadedFiles: File[] = [];
+  let preUploadedImages: CreatePromptInput["images"] = undefined;
+
+  if (typeof imagesFieldValue === "string" && imagesFieldValue.trim()) {
+    // 新模式：JSON 字符串
+    try {
+      preUploadedImages = JSON.parse(imagesFieldValue) as CreatePromptInput["images"];
+    } catch {
+      console.error("[publish] failed to parse pre-uploaded images JSON");
+      preUploadedImages = undefined;
+    }
+  } else {
+    // 旧模式：File 对象
+    uploadedFiles = formData
+      .getAll("images")
+      .filter((entry): entry is File => entry instanceof File && entry.size > 0)
+      .slice(0, 6);
+  }
+
   const intent = formData.get("intent");
   let status: "draft" | "approved" | "pending";
   if (intent === "draft") {
@@ -195,12 +215,17 @@ export async function POST(request: NextRequest) {
     status = isPrivileged ? "approved" : "pending";
   }
 
-  if (title.length < 4 || promptText.length < 12 || !modelId || (!imageUrl && uploadedFiles.length === 0)) {
+  if (title.length < 4 || promptText.length < 12 || !modelId || (!imageUrl && uploadedFiles.length === 0 && (!preUploadedImages || preUploadedImages.length === 0))) {
     return redirectWithError(request, "invalid_prompt_payload", undefined, formData);
   }
 
   let images: CreatePromptInput["images"] = [];
-  if (uploadedFiles.length > 0) {
+
+  // 如果是客户端直传模式，直接使用已上传的图片
+  if (preUploadedImages && preUploadedImages.length > 0) {
+    images = preUploadedImages;
+  } else if (uploadedFiles.length > 0) {
+    // 旧模式：通过 Next.js 上传文件
     try {
       images = await Promise.all(uploadedFiles.map((file) => persistUploadedFile(file, accessToken)));
     } catch (uploadError) {
