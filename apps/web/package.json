@@ -15,12 +15,12 @@
     "@deepprompt/types": "workspace:*",
     "browser-image-compression": "^2.0.2",
     "next": "^16.2.4",
-    "react": "^18.3.1",
+    "react": "^19.2.7",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.16.5",
-    "@types/react": "^18.3.12",
+    "@types/react": "^19.2.16",
     "@types/react-dom": "^18.3.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
